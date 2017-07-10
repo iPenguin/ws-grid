@@ -19,3 +19,8 @@ promises
 module importing and exporting
 
 Because these features are use you must be using at least Chrome 60, or Firefox 54, and you must have experimental flags turned on.
+
+
+## Features
+
+This grid is designed to be easily themed.
