@@ -73,6 +73,11 @@ export class wsGrid {
             rowHtml += '<tr classes="' + classes + '">';
             let col_count = this.column_model.length;
             for( let j = 0; j < col_count; j++ ) {
+                let isHidden = this.column_model[ j ].hidden;
+
+                if( typeof( isHidden ) !== 'undefined' && isHidden == true ) {
+                    continue;
+                }
                 let column_name =  this.column_model[ j ].name;
                 rowHtml += '<td classes="wsgrid_column_' + column_name + '">'
                     + data[ i ][ column_name ]
