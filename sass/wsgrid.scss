@@ -1,0 +1,25 @@
+
+.wsgrid__table {
+    border-collapse:collapse;
+}
+
+.wsgrid__table thead
+{
+	display: block;
+	overflow: auto;
+}
+
+.wsgrid__table tbody
+{
+	display: block;
+	overflow: auto;
+}
+
+.wsgrid__table th,
+.wsgrid__table td
+{
+	padding: .5em 1em;
+	text-align: left;
+	vertical-align: top;
+	border-left: 1px solid #fff;
+}
