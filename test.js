@@ -3,12 +3,17 @@
  */
 import {wsGrid} from './wsGrid.js';
 
+function sort_height( a, b ) {
+
+    return 1;
+}
+
 let columns = [
     { name: 'id',         hidden: true,                                    },
-    { name: 'first_name', label: 'First Name', width: 200, align: 'left',   fixed: false, },
-    { name: 'last_name',  label: 'Last Name',  width: 200, align: 'left',   fixed: false,  },
-    { name: 'age',        label: 'Age',        width: 100, align: 'right',  fixed: true,  },
-    { name: 'height',     label: 'Height',     width: 100, align: 'center', fixed: true,  },
+    { name: 'first_name', label: 'First Name', width: 200, align: 'left',   fixed: false, sort: 'string' },
+    { name: 'last_name',  label: 'Last Name',  width: 200, align: 'left',   fixed: false, sort: 'string' },
+    { name: 'age',        label: 'Age',        width: 100, align: 'right',  fixed: true,  sort: 'number' },
+    { name: 'height',     label: 'Height',     width: 100, align: 'center', fixed: true,  sort: 'custom', sort_function: sort_height },
 ];
 
 let grid = new wsGrid( {
@@ -17,6 +22,14 @@ let grid = new wsGrid( {
     column_model: columns,
     height:       200,
     width:        750,
+    events:       {
+        click( row, column_name, data ) {
+            console.log( "click", row, column_name );
+        },
+        dblclick( row, column_name, data ) {
+            console.log( "dbl click", row, column_name );
+        }
+    }
 } );
 
 grid.fill_grid( [

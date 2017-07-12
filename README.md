@@ -7,11 +7,13 @@ This project is a basic table/grid that gets it's data from a WebSocket connecti
 This grid...
 
 * does NOT rely on any third party libraries.
-* it uses modern JavaScript technologies[1].
+* it uses modern JavaScript technologies, so it isn't backwards compatible[1].
 * is designed to be easily themed.
-*
+* is designed to be used with or without WebSockets.
 
-[1] This project is also test bed for all sorts of new ECMAScript features.
+This project takes some inspiration from jqGrid. Hopefully my API is a little cleaner and consistent. :)
+
+[1] This project is a test bed for all sorts of new ECMAScript features, it should be stable, but it should also be cutting edge.
 
 Some of the ECMAScript features that are used in this project are:
 
@@ -24,4 +26,4 @@ Some of the ECMAScript features that are used in this project are:
 * promises
 * modules (import & export)
 
-Because these features are use you must be using at least Chrome 60, or Firefox 54, and you must have experimental flags turned on.
+Because some of these features are new in browsers you must be using at least Chrome 60, or Firefox 54, and you must have experimental flags turned on for everything to work.

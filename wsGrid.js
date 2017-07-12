@@ -1,18 +1,30 @@
 /**
  *
- *
- * id:
- * height:
- * width:
- * column_defaults: - Default values for columns.
- * column_model:
- *    name        - String  - name of the column in the data.
- *    label       - String  - Label to put in the column header.
- *    width       - Number  - minimum width of the column.
- *    align       - String  - text alignment, left, right, center.
- *    fixed       - Boolean - is the width of this column fixed?
- *    hidden      - Boolean - is the field hidden?
+ *Options:
+ * id:              - id of DOM element that will contain this grid.
+ * height:          - height of grid.
+ * width:           - width of grid.
+ * column_defaults: - Default values for all columns.
+ * column_model:    - a list of options that will define how each column displays it's data.
+ *    name              - String  - name of the column in the data.
+ *    label             - String  - Label to put in the column header.
+ *    width             - Number  - minimum width of the column.
+ *    align             - String  - text alignment, left, right, center.
+ *    fixed             - Boolean - is the width of this column fixed?
+ *    hidden            - Boolean - is the field hidden?
+ * events:        - an object containing functions as elements.
+ *    click( row, column_name, row_data )
+ *    dblclick( row, column_name, row_data )
+ *    contextmenu( row, column_name, row_data )
+ *    header_click( column_name )
  **/
+
+const wsgrid_prefix = 'wsgrid_';
+const wsgrid_header = `${wsgrid_prefix}_header`;
+const wsgrid_table = `${wsgrid_prefix}_table`;
+const wsgrid_body = `${wsgrid_prefix}_body`;
+const wsgrid_column = `${wsgrid_prefix}_column`;
+const wsgrid_row = `${wsgrid_prefix}_row`;
 
 let column_defaults = {
     name:   '',
@@ -33,6 +45,7 @@ export class wsGrid {
         let grid_defaults = {
             height: 200,
             width:  200,
+            events: {},
         };
 
         //extend the default options with the user options
@@ -40,10 +53,20 @@ export class wsGrid {
 
         this._setup_object( allOptions );
 
-        this.grid = document.getElementById( this.id );
+        this.grid_container = document.getElementById( this.id );
 
         this._parse_column_info();
-        this.generate_grid();
+        this.grid = this.generate_grid();
+
+        let grid_body = this.grid.querySelector( `.${wsgrid_body}` );
+        console.log( "grid_body", grid_body, wsgrid_body );
+        // conect events.
+        grid_body.addEventListener( 'click', ( event ) => { this.click.call( this, event ); } );
+        grid_body.addEventListener( 'dblclick', ( event ) => { this.dblclick.call( this, event ); } );
+        grid_body.addEventListener( 'contextmenu', ( event ) => { this.contextmenu.call( this, event ); } );
+
+        let grid_header = this.grid.querySelector( `.${wsgrid_header}` );
+        grid_header.addEventListener( 'click', ( event ) => { this.header_click.call( this, event ); } );
     }
 
     /**
@@ -122,12 +145,12 @@ export class wsGrid {
     }
 
     /**
-     * Generate the grid from scratch
-     * @return {[type]} [description]
+     * Generate the shell of the grid from scratch
      */
     generate_grid() {
         let column_count = this.column_model.length;
-        let table_header = '<tr class="wsgrid__header_row">';
+
+        let table_header = `<tr class="${wsgrid_header}_row">`;
 
         for( let i = 0; i < column_count; i++ ) {
             let isHidden = this.column_model[ i ].hidden;
@@ -135,39 +158,42 @@ export class wsGrid {
                 continue;
             }
             let column_name = this.column_model[ i ].name;
-            table_header += '<th class="wsgrid__header_column'
-                + ' wsgrid__header_column_' + column_name + '" '
-                + `style="width:${this.column_widths[ i ]}px;`
-                + '">'
+            table_header += `<th class="${wsgrid_header}_column ${wsgrid_header}_column_${column_name}" `
+                + `style="width:${this.column_widths[ i ]}px;">`
                 + this.column_model[ i ].label
                 + '</th>';
         }
         table_header += '</tr>';
 
-        let html = '<table class="wsgrid__table wsgrid__table_' + this.id + '">'
-            + '    <thead class="wsgrid__head">'
-            + table_header
-            + '    </thead>'
-            + `<tbody class="wsgrid__body" style="height:${this.height}px;">`
-            + '    </tbody>'
+        let html = `<table class="${wsgrid_table} ${wsgrid_table}_${this.id}">`
+            + `<thead class="${wsgrid_header}">${table_header}</thead>`
+            + `<tbody class="${wsgrid_body}" style="height:${this.height}px;"></tbody>`
             + '</table>';
 
-        this.grid.innerHTML = html;
+        this.grid_container.innerHTML = html;
+
+        return document.querySelector( `table.${wsgrid_table}_${this.id}` );
     }
 
+    /**
+     * fill the grid with the given data.
+     * @param  {Array} data - Array of objects containing data in the form key: value
+     */
     fill_grid( data ) {
-        let table_body = document.querySelector( 'table.wsgrid__table_' + this.id + ' .wsgrid__body' );
+        let table_body = document.querySelector( `table.${wsgrid_table}_${this.id} .${wsgrid_body}` );
+
+        this.data = data;
 
         let rowHtml = '';
         let count = data.length;
         for( let i = 0; i < count; i++ ) {
-            let classes = 'wsgrid__row';
+            let classes = `${wsgrid_row} ${wsgrid_row}_id_${i}`;
 
             if( i % 2 == 0 ) {
-                classes += ' wsgrid__row_even ';
+                classes += ` ${wsgrid_row}_even `;
             }
             else {
-                classes += ' wsgrid__row_odd ';
+                classes += ` ${wsgrid_row}_odd `;
             }
 
             rowHtml += '<tr class="' + classes + '">';
@@ -179,7 +205,7 @@ export class wsGrid {
                     continue;
                 }
                 let column_name =  this.column_model[ j ].name;
-                rowHtml += `<td class="wsgrid_column_${column_name}"`
+                rowHtml += `<td class="${wsgrid_column}_${column_name}"`
                     + `style="width:${this.column_widths[j]}px;">`
                     + data[ i ][ column_name ]
                     + '</td>';
@@ -190,4 +216,113 @@ export class wsGrid {
         table_body.innerHTML = rowHtml;
     }
 
+    /***********************************************************************************
+     * Event handlers:
+     *
+     *   The events below can have custom event handlers passed in by the user.
+     ***********************************************************************************/
+
+    click( event ) {
+        let classList = event.target.classList;
+        let column_name = '';
+        let row = 0;
+
+        // get the column name
+        classList.forEach( ( c ) => {
+            if( c.startsWith( `${wsgrid_column}_` ) ) {
+                column_name = c.replace( `${wsgrid_column}_`, '' );
+            }
+        } );
+
+        // get the row
+        let row_element = event.target.closest( `.${wsgrid_row}` );
+        row_element.classList.forEach( ( c ) => {
+            if( c.startsWith( `${wsgrid_row}_id_` ) ) {
+                row = c.replace( `${wsgrid_row}_id_`, '' );
+            }
+        } );
+
+        // only call the user defined function if it exists.
+        if( typeof( this.events.click ) == 'function' ) {
+            this.events.click( row, column_name, this.data[ row ] );
+        }
+    }
+
+    dblclick( event ) {
+        let classList = event.target.classList;
+        let column_name = '';
+        let row = 0;
+
+        // get the column name
+        classList.forEach( ( c ) => {
+            if( c.startsWith( wsgrid_column ) ) {
+                column_name = c.replace( `${wsgrid_column}_`, '' );
+            }
+        } );
+
+        // get the row
+        let row_element = event.target.closest( `.${wsgrid_row}` );
+        row_element.classList.forEach( ( c ) => {
+            if( c.startsWith( `${wsgrid_row}_id_` ) ) {
+                row = c.replace( `${wsgrid_row}_id_`, '' );
+            }
+        } );
+
+        // only call the user defined function if it exists.
+        if( typeof( this.events.dblclick ) == 'function' ) {
+            this.events.dblclick( row, column_name, this.data[ row ] );
+        }
+    }
+
+    contextmenu( event ) {
+        let classList = event.target.classList;
+        let column_name = '';
+        let row = 0;
+
+        // get the column name
+        classList.forEach( ( c ) => {
+            if( c.startsWith( wsgrid_column ) ) {
+                column_name = c.replace( `${wsgrid_column}_`, '' );
+            }
+        } );
+
+        // get the row
+        let row_element = event.target.closest( `.${wsgrid_row}` );
+        row_element.classList.forEach( ( c ) => {
+            if( c.startsWith( `${wsgrid_row}_id_` ) ) {
+                row = c.replace( `${wsgrid_row}_id_`, '' );
+            }
+        } );
+
+        // only call the user defined function if it exists.
+        if( typeof( this.events.contextmenu ) == 'function' ) {
+            this.events.contextmenu( row, column_name, this.data[ row ] );
+        }
+    }
+
+    header_click( event ) {
+        let classList = event.target.classList;
+        let column_name = '';
+
+        // get the column name
+        classList.forEach( ( c ) => {
+            if( c.startsWith( wsgrid_column ) ) {
+                column_name = c.replace( `${wsgrid_column}_`, '' );
+            }
+        } );
+
+
+        // only call the user defined function if it exists.
+        if( typeof( this.events.contextmenu ) == 'function' ) {
+            this.events.contextmenu( row, column_name, this.data[ row ] );
+        }
+    }
+
+    _sort_string( a, b ) {
+
+    }
+
+    _sort_number( a, b ) {
+
+    }
 };
