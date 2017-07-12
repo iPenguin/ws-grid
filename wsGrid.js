@@ -182,10 +182,14 @@ export class wsGrid {
     fill_grid( data ) {
         let table_body = document.querySelector( `table.${wsgrid_table}_${this.id} .${wsgrid_body}` );
 
-        this.data = data;
+        table_body.innerHTML = '';
+
+        if( typeof( data ) != 'undefined' ) {
+            this.data = data;
+        }
 
         let rowHtml = '';
-        let count = data.length;
+        let count = this.data.length;
         for( let i = 0; i < count; i++ ) {
             let classes = `${wsgrid_row} ${wsgrid_row}_id_${i}`;
 
@@ -207,7 +211,7 @@ export class wsGrid {
                 let column_name =  this.column_model[ j ].name;
                 rowHtml += `<td class="${wsgrid_column}_${column_name}"`
                     + `style="width:${this.column_widths[j]}px;">`
-                    + data[ i ][ column_name ]
+                    + this.data[ i ][ column_name ]
                     + '</td>';
             }
             rowHtml += '</tr>';
@@ -306,23 +310,31 @@ export class wsGrid {
 
         // get the column name
         classList.forEach( ( c ) => {
-            if( c.startsWith( wsgrid_column ) ) {
-                column_name = c.replace( `${wsgrid_column}_`, '' );
+            if( c.startsWith( `${wsgrid_header}_column_` ) ) {
+                column_name = c.replace( `${wsgrid_header}_column_`, '' );
             }
         } );
 
-
         // only call the user defined function if it exists.
-        if( typeof( this.events.contextmenu ) == 'function' ) {
-            this.events.contextmenu( row, column_name, this.data[ row ] );
+        if( typeof( this.events.header_click ) == 'function' ) {
+            this.events.header_click( column_name );
+        }
+        else {
+            this.data.sort( ( a, b ) => {
+                return this._sort_string( column_name, a, b );
+            } );
+
+            this.fill_grid();
         }
     }
 
-    _sort_string( a, b ) {
-
-    }
-
-    _sort_number( a, b ) {
-
+    _sort_string( column_name, a, b ) {
+        console.log( a, b, column_name, a[ column_name], b[column_name] );
+        if( a[ column_name ] > b[ column_name ] ) {
+            return 1;
+        }
+        else {
+            return -1;
+        }
     }
 };
