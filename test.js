@@ -5,10 +5,10 @@ import {wsGrid} from './wsGrid.js';
 
 let columns = [
     { name: 'id',         hidden: true,                                    },
-    { name: 'first_name', label: 'First Name', width: 200, align: 'left'   },
-    { name: 'last_name',  label: 'Last Name',  width: 200, align: 'left'   },
-    { name: 'age',        label: 'Age',        width: 100, align: 'right'  },
-    { name: 'height',     label: 'Height',     width: 100, align: 'center' },
+    { name: 'first_name', label: 'First Name', width: 200, align: 'left',   fixed: false, },
+    { name: 'last_name',  label: 'Last Name',  width: 200, align: 'left',   fixed: false,  },
+    { name: 'age',        label: 'Age',        width: 100, align: 'right',  fixed: true,  },
+    { name: 'height',     label: 'Height',     width: 100, align: 'center', fixed: true,  },
 ];
 
 let grid = new wsGrid( {

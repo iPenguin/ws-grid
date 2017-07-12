@@ -3,23 +3,26 @@
     border-collapse:collapse;
 }
 
-.wsgrid__table thead
-{
+.wsgrid__table thead {
 	display: block;
 	overflow: auto;
+    background-color: lightgray;
 }
 
-.wsgrid__table tbody
-{
+.wsgrid__table tbody {
 	display: block;
 	overflow: auto;
 }
 
 .wsgrid__table th,
-.wsgrid__table td
-{
-	padding: .5em 1em;
+.wsgrid__table td {
 	text-align: left;
 	vertical-align: top;
-	border-left: 1px solid #fff;
+}
+
+.wsgrid__row_odd {
+    background-color: lightcyan;
+}
+.wsgrid__row_even {
+    background-color: white;
 }
