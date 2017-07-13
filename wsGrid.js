@@ -2,16 +2,19 @@
  *
  *Options:
  * id:              - id of DOM element that will contain this grid.
- * height:          - height of grid.
+ * height:          - height of grid. Set the height to an empty string to allow the grid to be the height of the data.
  * width:           - width of grid.
  * column_defaults: - Default values for all columns.
  * column_model:    - a list of options that will define how each column displays it's data.
- *    name              - String  - name of the column in the data.
- *    label             - String  - Label to put in the column header.
- *    width             - Number  - minimum width of the column.
- *    align             - String  - text alignment, left, right, center.
- *    fixed             - Boolean - is the width of this column fixed?
- *    hidden            - Boolean - is the field hidden?
+ *    name              - String   - name of the column in the data.
+ *    label             - String   - Label to put in the column header.
+ *    width             - Number   - minimum width of the column.
+ *    align             - String   - text alignment, left, right, center.
+ *    fixed             - Boolean  - is the width of this column fixed?
+ *    hidden            - Boolean  - is the field hidden?
+ *    sort              - String   - what method to use when sorting this column, string, number, date, currency, custom,
+ *    sort_function     - Function - when sort is set to custom this contains the function it will use to do sorting.
+ *                                   the return value of this function should follow standard JavaScript sort functions.
  * events:        - an object containing functions as elements.
  *    click( row, column_name, row_data )
  *    dblclick( row, column_name, row_data )
@@ -33,6 +36,7 @@ let column_defaults = {
     align:  'left',
     fixed:  true,
     hidden: false,
+    sort:   'string',
 };
 
 export class wsGrid {
@@ -49,9 +53,9 @@ export class wsGrid {
         };
 
         //extend the default options with the user options
-        let allOptions = Object.assign( {}, grid_defaults, options );
+        let all_options = Object.assign( {}, grid_defaults, options );
 
-        this._setup_object( allOptions );
+        this._setup_object( all_options );
 
         this.grid_container = document.getElementById( this.id );
 
@@ -159,7 +163,8 @@ export class wsGrid {
             }
             let column_name = this.column_model[ i ].name;
             table_header += `<th class="${wsgrid_header}_column ${wsgrid_header}_column_${column_name}" `
-                + `style="width:${this.column_widths[ i ]}px;">`
+                + `style="width:${this.column_widths[ i ]}px;`
+                + `text-align:${this.column_model[ i ].align};">`
                 + this.column_model[ i ].label
                 + '</th>';
         }
@@ -210,7 +215,8 @@ export class wsGrid {
                 }
                 let column_name =  this.column_model[ j ].name;
                 rowHtml += `<td class="${wsgrid_column}_${column_name}"`
-                    + `style="width:${this.column_widths[j]}px;">`
+                    + `style="width:${this.column_widths[j]}px;`
+                    + `text-align:${this.column_model[ j ].align};">`
                     + this.data[ i ][ column_name ]
                     + '</td>';
             }
@@ -320,16 +326,16 @@ export class wsGrid {
             this.events.header_click( column_name );
         }
         else {
+
             this.data.sort( ( a, b ) => {
-                return this._sort_string( column_name, a, b );
+                return this._basic_sorting( column_name, a, b );
             } );
 
             this.fill_grid();
         }
     }
 
-    _sort_string( column_name, a, b ) {
-        console.log( a, b, column_name, a[ column_name], b[column_name] );
+    _basic_sorting( column_name, a, b ) {
         if( a[ column_name ] > b[ column_name ] ) {
             return 1;
         }

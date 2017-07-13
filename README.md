@@ -4,8 +4,6 @@ This project is a basic table/grid that gets it's data from a WebSocket connecti
 
 ## Features
 
-This grid...
-
 * optional header clicking to sort columns.
 * optional zebra striping.
 * optional cell/row click, double click events.
