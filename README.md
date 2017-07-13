@@ -6,24 +6,14 @@ This project is a basic table/grid that gets it's data from a WebSocket connecti
 
 This grid...
 
-* does NOT rely on any third party libraries.
-* it uses modern JavaScript technologies, so it isn't backwards compatible[1].
+* optional header clicking to sort columns.
+* optional zebra striping.
+* optional cell/row click, double click events.
+* does not require any third party libraries to use.
+* it uses modern JavaScript technologies, so don't expect it to work in older browser.
 * is designed to be easily themed.
-* is designed to be used with or without WebSockets.
+* is designed to be used with WebSockets, but also to be used with other data sources.
 
-This project takes some inspiration from jqGrid. Hopefully my API is a little cleaner and consistent. :)
+This project takes some inspiration from jqGrid.
 
-[1] This project is a test bed for all sorts of new ECMAScript features, it should be stable, but it should also be cutting edge.
-
-Some of the ECMAScript features that are used in this project are:
-
-* block scoping (let)
-* arrow function declarations
-* const
-* classes
-* default parameters
-* parameter context matching
-* promises
-* modules (import & export)
-
-Because some of these features are new in browsers you must be using at least Chrome 60, or Firefox 54, and you must have experimental flags turned on for everything to work.
+Because I'm using module import/export, you need to be using at least Chrome 60, or Firefox 54, and you must have experimental flags turned on.
