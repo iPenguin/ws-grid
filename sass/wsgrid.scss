@@ -3,24 +3,34 @@
  */
 .wsgrid__table {
     border-collapse:collapse;
-}
 
-.wsgrid__table thead {
-	display: block;
-	overflow: auto;
-    background-color: lightgray;
-    cursor: pointer;
-}
+    thead {
+    	display: block;
+    	overflow: auto;
+        background-color: lightgray;
+        cursor: pointer;
+        margin-right: 7px;
+    }
 
-.wsgrid__table tbody {
-	display: block;
-	overflow: auto;
-}
+    tbody {
+    	display: block;
+    	overflow: auto;
 
-.wsgrid__table th,
-.wsgrid__table td {
-	text-align: left;
-	vertical-align: top;
+        tr:hover {
+            background-color: #ececec;
+        }
+    }
+
+    th,
+    td {
+    	text-align: left;
+    	vertical-align: top;
+        padding: 3px;
+        border-right: 1px solid black;
+    }
+    td.selected {
+        border: 1px solid LightSkyBlue;
+    }
 }
 
 .wsgrid__row_odd {
