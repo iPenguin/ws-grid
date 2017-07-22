@@ -72,13 +72,18 @@ columns.forEach( ( column ) => {
 
 let filter = document.getElementById( 'filter' );
 filter.onchange = () => {
-    grid.filter( [
-        {
-            field:    select.options[ select.selectedIndex ].value,
-            type:     'string',
-            operator: '==',
-            test:     filter.value,
-        }
-    ] );
+    if( filter.value == '' ) {
+        grid.filter( false );
+    }
+    else {
+        grid.filter( [
+            {
+                field:    select.options[ select.selectedIndex ].value,
+                type:     'string',
+                operator: '==',
+                test:     filter.value,
+            }
+        ] );
+    }
 
 };

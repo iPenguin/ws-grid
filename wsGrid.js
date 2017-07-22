@@ -62,6 +62,7 @@ export class wsGrid {
 
         this._parse_column_info();
         this.grid = this.generate_grid();
+        this.is_filtered = false;
 
         let grid_body = this.grid.querySelector( `.${wsgrid_body}` );
 
@@ -247,7 +248,14 @@ export class wsGrid {
      * ie: [ { type: 'string', operator: '==', test: 'John' } ]
      */
     filter( filters ) {
-        this.filters = filters;
+
+        if( typeof( filters ) == 'boolean' ) {
+            this.is_filtered = filters;
+        }
+        else {
+            this.filters = filters;
+            this.is_filtered = true;
+        }
 
         this.fill_grid();
     }
@@ -258,6 +266,11 @@ export class wsGrid {
      * @return {Boolean}
      */
     _is_selected( index ) {
+
+        // If the filter isn't turned on, select everything.
+        if( ! this.is_filtered ) {
+            return true;
+        }
 
         let row_data = this.data[ index ];
 
