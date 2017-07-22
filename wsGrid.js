@@ -47,9 +47,10 @@ export class wsGrid {
         ] );
 
         let grid_defaults = {
-            height: 200,
-            width:  200,
-            events: {},
+            height:  200,
+            width:   200,
+            events:  {},
+            filters: [],
         };
 
         //extend the default options with the user options
@@ -63,7 +64,7 @@ export class wsGrid {
         this.grid = this.generate_grid();
 
         let grid_body = this.grid.querySelector( `.${wsgrid_body}` );
-        console.log( "grid_body", grid_body, wsgrid_body );
+
         // conect events.
         grid_body.addEventListener( 'click', ( event ) => { this.click.call( this, event ); } );
         grid_body.addEventListener( 'dblclick', ( event ) => { this.dblclick.call( this, event ); } );
@@ -172,7 +173,8 @@ export class wsGrid {
 
         let html = `<table class="${wsgrid_table} ${wsgrid_table}_${this.id}">`
             + `<thead class="${wsgrid_header}">${table_header}</thead>`
-            + `<tbody class="${wsgrid_body}" style="height:${this.height}px;"></tbody>`
+            + `<tbody class="${wsgrid_body}" style="height:${this.height}px;`
+            + `width:${this.width + 42 }px"></tbody>`
             + '</table>';
 
         this.grid_container.innerHTML = html;
@@ -195,15 +197,24 @@ export class wsGrid {
 
         let rowHtml = '';
         let count = this.data.length;
+
+        let zebra = 0;
+
         for( let i = 0; i < count; i++ ) {
+
+            if( this._is_selected( i ) == false ) {
+                continue;
+            }
+
             let classes = `${wsgrid_row} ${wsgrid_row}_id_${i}`;
 
-            if( i % 2 == 0 ) {
+            if( zebra % 2 == 0 ) {
                 classes += ` ${wsgrid_row}_even `;
             }
             else {
                 classes += ` ${wsgrid_row}_odd `;
             }
+            zebra++;
 
             rowHtml += '<tr class="' + classes + '">';
             let col_count = this.column_model.length;
@@ -224,6 +235,39 @@ export class wsGrid {
         }
 
         table_body.innerHTML = rowHtml;
+    }
+
+    /**
+     * Create a filter and apply it to the data.
+     * @param  {Array} filters - An Array of filter Objects containing the following options:
+     *     type     - string - 'string', 'number',
+     *     operator - '==', '<', '>', '<=', '>=', '!=',
+     *     test     - string or number to test against.
+     *     join     - How to join this filter to the previous one.
+     * ie: [ { type: 'string', operator: '==', test: 'John' } ]
+     */
+    filter( filters ) {
+        this.filters = filters;
+
+        this.fill_grid();
+    }
+
+    /**
+     * Should we filter out this record?
+     * @param  {Number}  index - the index number to test the filtering on.
+     * @return {Boolean}
+     */
+    _is_selected( index ) {
+
+        let row_data = this.data[ index ];
+
+        for( let i = 0; i < this.filters.length; i++ ) {
+            let f = this.filters[ i ];
+            if( row_data[ f.field ] == f.test ) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /***********************************************************************************
