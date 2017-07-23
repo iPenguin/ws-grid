@@ -308,7 +308,7 @@ export class wsGrid {
         let count = selected.length;
 
         for( let i = 0; i < count; i++ ) {
-            selected[i].classList.remove( 'selected' );
+            selected[ i ].classList.remove( 'selected' );
         }
         classList.add( 'selected' );
 
