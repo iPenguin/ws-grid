@@ -28,6 +28,9 @@
         padding: 3px;
         border-right: 1px solid black;
     }
+    td:hover {
+        background-color: #f8f8f8;
+    }
     td.selected {
         border: 1px solid LightSkyBlue;
     }

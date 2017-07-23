@@ -303,6 +303,15 @@ export class wsGrid {
             }
         } );
 
+        // Set the selected cell.
+        let selected = document.getElementsByClassName( 'selected' );
+        let count = selected.length;
+
+        for( let i = 0; i < count; i++ ) {
+            selected[i].classList.remove( 'selected' );
+        }
+        classList.add( 'selected' );
+
         // get the row
         let row_element = event.target.closest( `.${wsgrid_row}` );
         row_element.classList.forEach( ( c ) => {
