@@ -64,6 +64,8 @@ export class wsGrid {
         this.grid = this.generate_grid();
         this.is_filtered = false;
 
+        this.sort_direction = 'asc';
+
         let grid_body = this.grid.querySelector( `.${wsgrid_body}` );
 
         // conect events.
@@ -388,16 +390,30 @@ export class wsGrid {
                 return this._basic_sorting( column_name, a, b );
             } );
 
+            this.sort_direction = ( this.sort_direction == 'asc' ? 'desc' : 'asc' );
+
             this.fill_grid();
         }
     }
 
     _basic_sorting( column_name, a, b ) {
-        if( a[ column_name ] > b[ column_name ] ) {
-            return 1;
+        if( this.sort_direction == 'asc' ) {
+
+            if( a[ column_name ] > b[ column_name ] ) {
+                return 1;
+            }
+            else {
+                return -1;
+            }
         }
-        else {
-            return -1;
+        else if( this.sort_direction == 'desc' ) {
+
+            if( a[ column_name ] < b[ column_name ] ) {
+                return 1;
+            }
+            else {
+                return -1;
+            }
         }
     }
 };
