@@ -20,6 +20,12 @@
  *    dblclick( row, column_name, row_data )
  *    contextmenu( row, column_name, row_data )
  *    header_click( column_name )
+ *
+ * Editing Events:
+ *    before_inline_opened( row, column_name, value, row_data ) - return '' to prevent a dialog opening.
+ *    before_inline_closed( row, column_name, value, row_data ) - can prevent the editor from closing and loosing focus.
+ *    before_inline_submitted( row, column_name, value, row_data )  - can manipulate the data before it's saved to the local data model.
+ *
  **/
 
 const wsgrid_prefix = 'wsgrid_';
@@ -28,15 +34,29 @@ const wsgrid_table = `${wsgrid_prefix}_table`;
 const wsgrid_body = `${wsgrid_prefix}_body`;
 const wsgrid_column = `${wsgrid_prefix}_column`;
 const wsgrid_row = `${wsgrid_prefix}_row`;
+const wsgrid_editor = `${wsgrid_prefix}_editor`;
 
 let column_defaults = {
-    name:   '',
-    label:  '',
-    width:  100,
-    align:  'left',
-    fixed:  true,
-    hidden: false,
-    sort:   'string',
+    name:     '',
+    label:    '',
+    width:    100,
+    align:    'left',
+    fixed:    true,
+    hidden:   false,
+    sort:     'text',
+    editable: false,
+};
+
+function convert_html_entities( string ) {
+    let tags_to_replace = {
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+    };
+    return string.replace( /[&<>\"]/g, ( tag ) => {
+        return tags_to_replace[tag] || tag;
+    } );
 };
 
 export class wsGrid {
@@ -350,6 +370,18 @@ export class wsGrid {
         if( typeof( this.events.dblclick ) == 'function' ) {
             this.events.dblclick( row, column_name, this.data[ row ] );
         }
+        else {
+            // If this column is editable create an editor
+            // for the user to change the data.
+            let count = this.column_model.length;
+            for( let i = 0; i < count; i++ ) {
+                if( this.column_model[ i ].name == column_name
+                    && this.column_model[ i ].editable == true ) {
+
+                    this._inline_editor( event.target, i, this.column_model[ i ] );
+                }
+            }
+        }
     }
 
     contextmenu( event ) {
@@ -405,6 +437,13 @@ export class wsGrid {
         }
     }
 
+    /**
+     * Do generic asc / desc sorting.
+     * @param  {String} column_name - Which column are we sorting asc/desc.
+     * @param  {Object} a           - 1st row to compare for sorting.
+     * @param  {Object} b           - 2nd row to compre for sorting.
+     * @return {Number}             - 1 sort a up, -1 sort a down.
+     */
     _basic_sorting( column_name, a, b ) {
         if( this.sort_direction == 'asc' ) {
 
@@ -424,5 +463,43 @@ export class wsGrid {
                 return -1;
             }
         }
+    }
+
+    /**
+     * [_inline_editor description]
+     * @param  {[type]} cell       [description]
+     * @param  {[type]} index      [description]
+     * @param  {[type]} properties [description]
+     * @return {[type]}            [description]
+     */
+    _inline_editor( cell, index, properties ) {
+        let editor = '';
+        let cell_value = cell.innerHTML;
+
+        // Only open an editor if one isn't already open.
+        if( cell.firstChild == '#text' ) {
+            return cell.innerHTML;
+        }
+
+        let value = convert_html_entities( cell_value );
+        editor = `<input type="${properties.type}" class="${wsgrid_editor}_main_editor"`
+                + `style="width:${this.column_widths[ index ]}px;text-align:${properties.align}" `
+                + `value=\"${value}\">`;
+
+        cell.innerHTML = editor;
+
+        cell.firstChild.addEventListener( 'keyup', ( event ) => {
+            if( event.keyCode == 13 ) {
+                let e = new Event( 'focusout' );
+                cell.firstChild.dispatchEvent( e );
+            }
+        } );
+
+        cell.firstChild.addEventListener( 'focusout', () => {
+
+            console.log( "first child", cell.firstChild );
+            //cell.firstChild ;
+            cell.innerHTML = cell.firstChild.value;
+        } );
     }
 };
