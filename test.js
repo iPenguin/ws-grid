@@ -1,28 +1,32 @@
 /**
  * This file contains a test implementation of the wsGrid class.
  */
-import {wsGrid} from './wsGrid.js';
+import {Grid} from './wsGrid.js';
 
 let columns = [
     { name: 'id',         hidden: true,                                    },
     { name: 'first_name', label: 'First Name', width: 200, align: 'left',   fixed: false, type: 'text'   },
     { name: 'last_name',  label: 'Last Name',  width: 200, align: 'left',   fixed: false, type: 'text',   editable: true },
-    { name: 'age',        label: 'Age',        width: 100, align: 'right',  fixed: true,  type: 'number', editable: true },
+    { name: 'age',        label: 'Age',        width: 75, align: 'right',  fixed: true,  type: 'number', editable: true },
     { name: 'height',     label: 'Height',     width: 100, align: 'center', fixed: true,  type: 'text',   editable: true },
-    { name: 'dob',        label: 'DOB',        width: 200, align: 'center', fixed: true,  type: 'text',   editable: true},
-    { name: 'color',      label: 'Fav Color',  width: 100, align: 'center', fixed: true,  type: 'color',  editable: true},
+    { name: 'dob',        label: 'DOB',        width: 100, align: 'center', fixed: true,  type: 'text',   editable: true},
+    { name: 'color',      label: 'Color',      width: 75, align: 'center', fixed: true,  type: 'color',  editable: true},
 ];
 
-let grid = new wsGrid( {
+let grid = new Grid( {
     id:           'grid',
     url:          'ws://localhost:8000',
     column_model: columns,
     height:       300,
-    width:        1250,
+    width:        1200,
     events:       {
         click( row, column_name, data ) {
             console.log( "click", row, column_name );
         },
+    },
+    connection: {
+        type: 'Socket',
+        url:  'ws://localhost:1337',
     }
 } );
 
