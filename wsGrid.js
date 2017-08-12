@@ -20,13 +20,22 @@
  *    dblclick( row, column_name, row_data )
  *    contextmenu( row, column_name, row_data )
  *    header_click( column_name )
+ * filters:
  *
+ * connection:
+ *     type              - String  - Type of connection used: 'Ajax' or 'Socket'.
+ *     url               - String  - URL used to connect to the server.
+ *                                   examples: '/api/grid/data', 'wss://example.com/api/grid/data'
  * Editing Events:
  *    before_inline_opened( row, column_name, value, row_data ) - return '' to prevent a dialog opening.
  *    before_inline_closed( row, column_name, value, row_data ) - can prevent the editor from closing and loosing focus.
  *    before_inline_submitted( row, column_name, value, row_data )  - can manipulate the data before it's saved to the local data model.
  *
  **/
+
+import { CreateConnection } from './connection.js';
+import { Socket } from './socket.js';
+import { Ajax } from './ajax.js';
 
 const wsgrid_prefix = 'wsgrid_';
 const wsgrid_header = `${wsgrid_prefix}_header`;
@@ -59,7 +68,7 @@ function convert_html_entities( string ) {
     } );
 };
 
-export class wsGrid {
+export class Grid {
     constructor( options ) {
 
         this._required_options( options, [
@@ -67,10 +76,15 @@ export class wsGrid {
         ] );
 
         let grid_defaults = {
-            height:  200,
-            width:   200,
-            events:  {},
-            filters: [],
+            height:          200,
+            width:           200,
+            events:          {},
+            filters:         [],
+            connection: {
+                type:    'Socket',
+                url:     '',
+                options: {},
+            }
         };
 
         //extend the default options with the user options
@@ -78,6 +92,7 @@ export class wsGrid {
 
         this._setup_object( all_options );
 
+        this.connection = CreateConnection.create_connection( this.connection );
         this.grid_container = document.getElementById( this.id );
 
         this._parse_column_info();
@@ -107,7 +122,7 @@ export class wsGrid {
             let key = required[ i ];
             let value = options[ key ];
             if( typeof( value ) == 'undefined' ) {
-                throw new Error( "wsGrid: missing required argument: " + key );
+                throw new Error( "Grid: missing required argument: " + key );
             }
         }
     }
@@ -497,7 +512,12 @@ export class wsGrid {
 
         cell.firstChild.addEventListener( 'focusout', () => {
 
-            console.log( "first child", cell.firstChild );
+            if( typeof( this.events.before_inline_closed ) == 'function' ) {
+                if( this.events.before_inline_closed( row, column, value, row_data ) == false ) {
+                    return;
+                }
+            }
+
             //cell.firstChild ;
             cell.innerHTML = cell.firstChild.value;
         } );
