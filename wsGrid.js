@@ -108,7 +108,7 @@ export class Grid extends Object_Base {
         // conect events.
         grid_body.addEventListener( 'click', ( event ) => { this.click.call( this, event ); } );
         grid_body.addEventListener( 'dblclick', ( event ) => { this.dblclick.call( this, event ); } );
-        grid_body.addEventListener( 'loadcomplete', ( event ) => { this.loadcomplete.call( this, event ); } );
+        grid_body.addEventListener( 'load_complete', ( event ) => { this.load_complete.call( this, event ); } );
 
         let grid_header = this.grid.querySelector( `.${wsgrid_header}` );
         grid_header.addEventListener( 'click', ( event ) => { this.header_click.call( this, event ); } );
@@ -135,9 +135,16 @@ export class Grid extends Object_Base {
         let grid_width = this.width; //this.grid.offsetWidth;
         let fixed_width = 0;
         let flex_width = 0;
+        this.column_types = {};
+
+        this.data = [];
+        this.totalsData = undefined;
 
         // loop through the columns and gather information about widths...
         for( let i = 0; i < count; i++ ) {
+            // Create a quick lookup table for column type/format, so we know how to sort data
+            this.column_types[ this.column_model[ i ].name ] = this.column_model[ i ].type;
+
             let isHidden = this.column_model[ i ].hidden;
             if( isHidden ) {
                 continue;
@@ -175,6 +182,8 @@ export class Grid extends Object_Base {
         if( gridElement == null ) {
             throw new Error( `Could not find grid element. Is ${this.id} an element in the DOM?` );
         }
+
+
     }
 
     /**
@@ -316,6 +325,14 @@ export class Grid extends Object_Base {
      *   The events below can have custom event handlers passed in by the user.
      ***********************************************************************************/
 
+    /**
+     * click( row, columnName, rowData )
+     * Event - Fires when the user clicks on a cell.
+     * Paraemeters:
+     *    row        - record id in data array or the row clicked on.
+     *    columnName - Name of the column clicked on.
+     *    rowData    - data object for the row clicked on.
+     */
     click( event ) {
         let classList = event.target.classList;
         let column_name = '';
@@ -351,6 +368,14 @@ export class Grid extends Object_Base {
         }
     }
 
+    /**
+     * dblclick( row, columnName, rowData )
+     * Event - Fires when the user double clicks on a cell.
+     * Paraemeters:
+     *    row        - record id in data array or the row clicked on.
+     *    columnName - Name of the column clicked on.
+     *    rowData    - data object for the row clicked on.
+     */
     dblclick( event ) {
         let classList = event.target.classList;
         let column_name = '';
@@ -390,16 +415,23 @@ export class Grid extends Object_Base {
     }
 
     /**
-     * Event fires when the data has loaded from the server/data source.
-     * @param  {Event} event   - DOM Event.
+     * loadComplete( data )
+     * Event - Fires once the table has been generate and the data added to it.
+     * Parameters:
+     *      data    - An array of row objects
      */
-    loadcomplete( event ) {
-        //TODO: create loadcomplete event.
+    load_complete( event ) {
+        if( typeof( this.events.load_complete ) == 'function' ) {
+            this.events.load_complete( this.data );
+        }
     }
 
     /**
      * This event fires when the header columns are clicked
-     * @param  {Event} event   - DOm Event.
+     * The default event is to sort the data by the given column.
+     * Asending first, then descending.
+     *
+     * @param  {Event} event   - DOM Event.
      */
     header_click( event ) {
         let classList = event.target.classList;
@@ -436,9 +468,12 @@ export class Grid extends Object_Base {
      * @return {Number}             - 1 sort a up, -1 sort a down.
      */
     _basic_sorting( column_name, a, b ) {
+        let a_value = this._get_value( column_name, a );
+        let b_value = this._get_value( column_name, b );
+
         if( this.sort_direction == 'asc' ) {
 
-            if( a[ column_name ] > b[ column_name ] ) {
+            if( a_value >= b_value ) {
                 return 1;
             }
             else {
@@ -447,12 +482,44 @@ export class Grid extends Object_Base {
         }
         else if( this.sort_direction == 'desc' ) {
 
-            if( a[ column_name ] < b[ column_name ] ) {
+            if( a_value <= b_value ) {
                 return 1;
             }
             else {
                 return -1;
             }
+        }
+    }
+
+    /**
+     * Based on the type provided in the column model convert the value
+     * to something that can be sorted by the sort() function.
+     *
+     * @param  {[type]} column_name [description]
+     * @param  {[type]} object      [description]
+     * @return {[type]}             [description]
+     */
+    _get_value( column_name, object ) {
+        let type = this.column_types[ column_name ];
+        let value = object[ column_name ];
+
+        if( typeof( type ) == 'function' ) {
+            return type( value );
+        }
+
+        switch( type ) {
+            case 'text':
+            case 'string':
+                return String( value );
+            case 'number':
+                return Number( value );
+            //TODO: include moment.js
+            // case 'date':
+            //     return Number( moment( value ).format( 'YYYYMMDD' ) );
+            // case 'datetime':
+            //     return Number( moment( value ).format( 'YYYYMMDDHHmmss' ) );
+            default:
+                return String( value );
         }
     }
 
@@ -519,6 +586,60 @@ export class Grid extends Object_Base {
 
         cell.innerHTML = cell.firstChild.value;
         return true;
+    }
+
+    /**
+     * Count of the rows of data in the record set.
+     * @return {Number} - record set count
+     */
+    row_count() {
+        return this.data.length;
+    }
+
+    /**
+     * Copy the data to the clipboard in a form that can be pasted into a
+     * spreadsheet.
+     */
+    copy() {
+
+        let body = document.body;
+        let range;
+        let sel;
+        let el = document.getElementById( this.id );
+
+        if( document.createRange && window.getSelection ) {
+            range = document.createRange();
+            sel = window.getSelection();
+            sel.removeAllRanges();
+            try{
+                range.selectNodeContents( el );
+                sel.addRange( range );
+            }
+            catch( e ) {
+                range.selectNode( el );
+                sel.addRange( range );
+            }
+        }
+        else if( body.createTextRange ) {
+            range = body.createTextRange();
+            range.moveToElementText( el );
+            range.select();
+        }
+        document.execCommand( 'copy' );
+
+        if( window.getSelection ) {
+            if( window.getSelection().empty ) {  // Chrome
+                window.getSelection().empty();
+            }
+            else if( window.getSelection().removeAllRanges ) {  // Firefox
+                window.getSelection().removeAllRanges();
+            }
+        }
+        else if( document.selection ) {  // IE?
+            document.selection.empty();
+        }
+
+        //TODO: user feedback alert( "data copied");
     }
 
 };
