@@ -18,7 +18,6 @@
  * events:        - an object containing functions as elements.
  *    click( row, column_name, row_data )
  *    dblclick( row, column_name, row_data )
- *    contextmenu( row, column_name, row_data )
  *    header_click( column_name )
  * filters:
  *
@@ -33,6 +32,7 @@
  *
  **/
 
+import { Object_Base } from './object_base.js';
 import { CreateConnection } from './connection.js';
 import { Socket } from './socket.js';
 import { Ajax } from './ajax.js';
@@ -68,8 +68,9 @@ function convert_html_entities( string ) {
     } );
 };
 
-export class Grid {
+export class Grid extends Object_Base {
     constructor( options ) {
+        super( options );
 
         this._required_options( options, [
             'id', 'column_model', 'height', 'width',
@@ -80,6 +81,7 @@ export class Grid {
             width:           200,
             events:          {},
             filters:         [],
+            overflow:        false,
             connection: {
                 type:    'Socket',
                 url:     '',
@@ -106,35 +108,10 @@ export class Grid {
         // conect events.
         grid_body.addEventListener( 'click', ( event ) => { this.click.call( this, event ); } );
         grid_body.addEventListener( 'dblclick', ( event ) => { this.dblclick.call( this, event ); } );
-        grid_body.addEventListener( 'contextmenu', ( event ) => { this.contextmenu.call( this, event ); } );
+        grid_body.addEventListener( 'loadcomplete', ( event ) => { this.loadcomplete.call( this, event ); } );
 
         let grid_header = this.grid.querySelector( `.${wsgrid_header}` );
         grid_header.addEventListener( 'click', ( event ) => { this.header_click.call( this, event ); } );
-    }
-
-    /**
-     * Test options passed in against a list of required options.
-     * @param  {Object} options  - An object of options
-     * @param  {Array} required  - An array of options that are required.
-     */
-    _required_options( options, required ) {
-        for( let i in required ) {
-            let key = required[ i ];
-            let value = options[ key ];
-            if( typeof( value ) == 'undefined' ) {
-                throw new Error( "Grid: missing required argument: " + key );
-            }
-        }
-    }
-
-    /**
-     * assign all the options to the object so they can be used esle where in the object.
-     * @param  {Object} options - An object of options to be assigned to this object.
-     */
-    _setup_object( options ) {
-        for( let key in options ) {
-            this[ key ] = options[ key ];
-        }
     }
 
     /**
@@ -185,6 +162,19 @@ export class Grid {
         } );
 
         this.column_widths = column_widths;
+
+        if( this.overflow ) {
+            this.min_column_width = fixed_width + flex_width;
+        }
+        else {
+            this.min_column_width = 0;
+        }
+
+        // Make sure the element the user wants is actually in the DOM, if not throw an error the user can figure out.
+        let gridElement = document.getElementById( this.id );
+        if( gridElement == null ) {
+            throw new Error( `Could not find grid element. Is ${this.id} an element in the DOM?` );
+        }
     }
 
     /**
@@ -399,32 +389,18 @@ export class Grid {
         }
     }
 
-    contextmenu( event ) {
-        let classList = event.target.classList;
-        let column_name = '';
-        let row = 0;
-
-        // get the column name
-        classList.forEach( ( c ) => {
-            if( c.startsWith( wsgrid_column ) ) {
-                column_name = c.replace( `${wsgrid_column}_`, '' );
-            }
-        } );
-
-        // get the row
-        let row_element = event.target.closest( `.${wsgrid_row}` );
-        row_element.classList.forEach( ( c ) => {
-            if( c.startsWith( `${wsgrid_row}_id_` ) ) {
-                row = c.replace( `${wsgrid_row}_id_`, '' );
-            }
-        } );
-
-        // only call the user defined function if it exists.
-        if( typeof( this.events.contextmenu ) == 'function' ) {
-            this.events.contextmenu( row, column_name, this.data[ row ] );
-        }
+    /**
+     * Event fires when the data has loaded from the server/data source.
+     * @param  {Event} event   - DOM Event.
+     */
+    loadcomplete( event ) {
+        //TODO: create loadcomplete event.
     }
 
+    /**
+     * This event fires when the header columns are clicked
+     * @param  {Event} event   - DOm Event.
+     */
     header_click( event ) {
         let classList = event.target.classList;
         let column_name = '';
@@ -481,10 +457,10 @@ export class Grid {
     }
 
     /**
-     * [_inline_editor description]
-     * @param  {[type]} cell       [description]
-     * @param  {[type]} index      [description]
-     * @param  {[type]} properties [description]
+     * Generate the inline editor dialogs.
+     * @param  {HTMLElment} cell       - HTML Elment of the table cell.
+     * @param  {Number} index          - Index of the properties in the column_model
+     * @param  {[type]} properties
      * @return {[type]}            [description]
      */
     _inline_editor( cell, index, properties ) {
@@ -502,24 +478,47 @@ export class Grid {
                 + `value=\"${value}\">`;
 
         cell.innerHTML = editor;
+        let self = this;
 
         cell.firstChild.addEventListener( 'keyup', ( event ) => {
             if( event.keyCode == 13 ) {
-                let e = new Event( 'focusout' );
-                cell.firstChild.dispatchEvent( e );
+                let e = new Event( 'click' );
+                cell.dispatchEvent( e );
             }
         } );
 
-        cell.firstChild.addEventListener( 'focusout', () => {
+        document.addEventListener( 'click', function click_close_editor( event ) {
 
-            if( typeof( this.events.before_inline_closed ) == 'function' ) {
-                if( this.events.before_inline_closed( row, column, value, row_data ) == false ) {
-                    return;
-                }
+            // if we're clicking in the editor don't close it.
+            if( typeof( cell.firstChild ) != 'undefined'
+                && event.target == cell.firstChild ) {
+                return;
             }
 
-            //cell.firstChild ;
-            cell.innerHTML = cell.firstChild.value;
+            if( self._close_editor( event, cell ) ) {
+                document.removeEventListener( 'click', click_close_editor );
+            }
         } );
+
+        // Let the user edit right away.
+        cell.firstChild.focus();
     }
+
+    /**
+     * Close event for the inline editor.
+     * The user can override it by creating an before_inline_closed event and returning false;
+     * @param  {Event} event   -
+     * @return {[type]}       [description]
+     */
+    _close_editor( event, cell ) {
+        if( typeof( this.events.before_inline_closed ) == 'function' ) {
+            if( ! this.events.before_inline_closed( row, column, value, row_data ) ) {
+                return false;
+            }
+        }
+
+        cell.innerHTML = cell.firstChild.value;
+        return true;
+    }
+
 };
