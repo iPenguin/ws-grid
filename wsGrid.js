@@ -228,20 +228,25 @@ export class Grid extends Object_Base {
      * fill the grid with the given data and generate a table for display.
      * @param  {Array} data - Array of objects containing data in the form key: value
      */
-    display_grid( data ) {
-        // this tables body.
-        let table_body = document.querySelector( `table.${wsgrid_table}_${this.id} .${wsgrid_body}` );
-        table_body.innerHTML = '';
+    display( data ) {
 
         if( typeof( data ) != 'undefined' ) {
             this.data = data;
         }
 
+        this._generate_rows();
+    }
+
+    _generate_rows() {
+        // this tables body.
+        let table_body = document.querySelector( `table.${wsgrid_table}_${this.id} .${wsgrid_body}` );
+        table_body.innerHTML = '';
+
         if( typeof( this.events.data_loaded ) == 'function' ) {
             this.events.data_loaded( this.data );
         }
 
-        let rowHtml = '';
+        let row_html = '';
         let count = this.data.length;
 
         let zebra = 0;
@@ -262,31 +267,60 @@ export class Grid extends Object_Base {
             }
             zebra++;
 
-            rowHtml += `<tr class="${classes}" data-record-id="${i}">`;
-            let col_count = this.column_model.length;
-            for( let j = 0; j < col_count; j++ ) {
-                let isHidden = this.column_model[ j ].hidden;
-
-                if( typeof( isHidden ) !== 'undefined' && isHidden == true ) {
-                    continue;
-                }
-                let column_name =  this.column_model[ j ].name;
-                rowHtml += `<td class="${wsgrid_column}_${column_name}"`
-                    + `style="width:${this.column_widths[j]}px;`
-                    + `text-align:${this.column_model[ j ].align};">`
-                    + this.data[ i ][ column_name ]
-                    + '</td>';
-            }
-            rowHtml += '</tr>';
+            row_html += this._generate_row( this.data[ i ], classes, i );
         }
 
-        rowHtml += this._generate_totals_row();
+        row_html += this._generate_totals_row();
 
-        table_body.innerHTML = rowHtml;
+        table_body.innerHTML = row_html;
 
         let event = document.createEvent( 'HTMLEvents' );
         event.initEvent( 'load_complete', true, true );
         this.grid.dispatchEvent( event );
+    }
+
+    /**
+     * Generate the html for the given row of data.
+     */
+    _generate_row( data, classes, record_id ) {
+        /*********************************************************************************
+         * Generate Rows
+         *********************************************************************************/
+        let row_html = `<tr class="${classes}" data-record-id="${record_id}">`;
+        let col_count = this.column_model.length;
+        for( let col = 0; col < col_count; col++ ) {
+            let isHidden = this.column_model[ col ].hidden;
+
+            if( typeof( isHidden ) !== 'undefined' && isHidden == true ) {
+                continue;
+            }
+
+            let column_name = this.column_model[ col ].name;
+
+            let value = '';
+            if( typeof( data[ column_name ] ) !== 'undefined' ) {
+                value = data[ column_name ];
+            }
+            else if( typeof( this.column_model[ col ].format ) == 'function' ) {
+                value = this.column_model[ col ].format( data[ column_name ], data );
+            }
+
+            /*********************************************************************************
+             * Generate Columns
+             *********************************************************************************/
+            let user_classes = '';
+            if( typeof( this.column_model[ col ].classes ) != 'undefined' ) {
+                user_classes = this.column_model[ col ].classes;
+            }
+
+            row_html += `<td class="${wsgrid_column}_${column_name} ${user_classes}"`
+                + `style="width:${this.column_widths[ col ]}px;`
+                + `text-align:${this.column_model[ col ].align};">`
+                + value + '</td>';
+        }
+        row_html += '</tr>';
+
+        return row_html;
     }
 
     /**
@@ -308,7 +342,7 @@ export class Grid extends Object_Base {
             this.is_filtered = true;
         }
 
-        this.display_grid();
+        this.display();
     }
 
     /**
@@ -542,7 +576,7 @@ export class Grid extends Object_Base {
 
             this.sort_direction = ( this.sort_direction == 'asc' ? 'desc' : 'asc' );
 
-            this.display_grid();
+            this.display();
         }
     }
 

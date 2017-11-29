@@ -29,7 +29,7 @@ let grid = new Grid( {
     }
 } );
 
-grid.display_grid( [
+grid.display( [
     { id: 1, first_name: 'John', last_name: 'Smith',   age: 28, height: '5\'10"', dob: '1985-10-21', color: '#FFC0CB' },
     { id: 2, first_name: 'Jane', last_name: 'Doe',     age: 26, height: '5\'6"', dob: '1982-12-03', color: '#DB7093' },
     { id: 3, first_name: 'Matt', last_name: 'Miller',  age: 45, height: '5\'9"', dob: '1990-04-07', color: '#FA8072' },
