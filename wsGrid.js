@@ -39,11 +39,12 @@ import { Ajax } from './ajax.js';
 
 const wsgrid_prefix = 'wsgrid_';
 const wsgrid_header = `${wsgrid_prefix}_header`;
-const wsgrid_table = `${wsgrid_prefix}_table`;
-const wsgrid_body = `${wsgrid_prefix}_body`;
+const wsgrid_table  = `${wsgrid_prefix}_table`;
+const wsgrid_body   = `${wsgrid_prefix}_body`;
 const wsgrid_column = `${wsgrid_prefix}_column`;
-const wsgrid_row = `${wsgrid_prefix}_row`;
+const wsgrid_row    = `${wsgrid_prefix}_row`;
 const wsgrid_editor = `${wsgrid_prefix}_editor`;
+const wsgrid_totals = `${wsgrid_prefix}_totals`;
 
 let column_defaults = {
     name:     '',
@@ -138,7 +139,7 @@ export class Grid extends Object_Base {
         this.column_types = {};
 
         this.data = [];
-        this.totalsData = undefined;
+        this.totals_data = undefined;
 
         // loop through the columns and gather information about widths...
         for( let i = 0; i < count; i++ ) {
@@ -192,13 +193,17 @@ export class Grid extends Object_Base {
     generate_grid() {
         let column_count = this.column_model.length;
 
-        let table_header = `<tr class="${wsgrid_header}_row">`;
+        let table_header = `<tr class="${wsgrid_header}_row" style="min-width:${this.min_column_width}px">`;
 
         for( let i = 0; i < column_count; i++ ) {
             let isHidden = this.column_model[ i ].hidden;
             if( typeof( isHidden ) !== 'undefined' && isHidden == true ) {
                 continue;
             }
+
+            /*********************************************************************************
+             * Generate Headers
+             *********************************************************************************/
             let column_name = this.column_model[ i ].name;
             table_header += `<th class="${wsgrid_header}_column ${wsgrid_header}_column_${column_name}" `
                 + `style="width:${this.column_widths[ i ]}px;`
@@ -209,8 +214,8 @@ export class Grid extends Object_Base {
         table_header += '</tr>';
 
         let html = `<table class="${wsgrid_table} ${wsgrid_table}_${this.id}">`
-            + `<thead class="${wsgrid_header}">${table_header}</thead>`
-            + `<tbody class="${wsgrid_body}" style="height:${this.height}px;`
+            + `<thead class="${wsgrid_header} ${wsgrid_header}_${this.id}">${table_header}</thead>`
+            + `<tbody class="${wsgrid_body} ${wsgrid_body}_${this.id}" style="height:${this.height}px;`
             + `width:${this.width + 42 }px"></tbody>`
             + '</table>';
 
@@ -220,16 +225,20 @@ export class Grid extends Object_Base {
     }
 
     /**
-     * fill the grid with the given data.
+     * fill the grid with the given data and generate a table for display.
      * @param  {Array} data - Array of objects containing data in the form key: value
      */
-    fill_grid( data ) {
+    display_grid( data ) {
+        // this tables body.
         let table_body = document.querySelector( `table.${wsgrid_table}_${this.id} .${wsgrid_body}` );
-
         table_body.innerHTML = '';
 
         if( typeof( data ) != 'undefined' ) {
             this.data = data;
+        }
+
+        if( typeof( this.events.data_loaded ) == 'function' ) {
+            this.events.data_loaded( this.data );
         }
 
         let rowHtml = '';
@@ -253,7 +262,7 @@ export class Grid extends Object_Base {
             }
             zebra++;
 
-            rowHtml += '<tr class="' + classes + '">';
+            rowHtml += `<tr class="${classes}" data-record-id="${i}">`;
             let col_count = this.column_model.length;
             for( let j = 0; j < col_count; j++ ) {
                 let isHidden = this.column_model[ j ].hidden;
@@ -271,7 +280,13 @@ export class Grid extends Object_Base {
             rowHtml += '</tr>';
         }
 
+        rowHtml += this._generate_totals_row();
+
         table_body.innerHTML = rowHtml;
+
+        let event = document.createEvent( 'HTMLEvents' );
+        event.initEvent( 'load_complete', true, true );
+        this.grid.dispatchEvent( event );
     }
 
     /**
@@ -293,7 +308,7 @@ export class Grid extends Object_Base {
             this.is_filtered = true;
         }
 
-        this.fill_grid();
+        this.display_grid();
     }
 
     /**
@@ -319,6 +334,77 @@ export class Grid extends Object_Base {
         return false;
     }
 
+    /**
+     * Set the data to be used for the totals row at the bottom.
+     * If there is no totals data don't set anything.
+     * @param {Object} row_data    - Object containing the rows to total using the Column Model column names.
+     */
+    set_totals_row( row_data ) {
+        if( Array.isArray( row_data ) ) {
+            console.log( "Only using the first row of data" );
+            this.totals_data = row_data[ 0 ];
+        }
+        else {
+            this.totals_data = row_data;
+        }
+    }
+
+    _generate_totals_row() {
+        if( this.totals_data === undefined ) {
+            return '';
+        }
+
+        return this._generate_row( this.totals_data, `${wsgrid_totals}`, '' );
+    }
+
+    /**
+     * Refresh the data displayed in the grid.
+     * This updates the displayed data using the data stored data array.
+     */
+    refresh() {
+        //TODO: make a refresh button work
+        // $( `#${this.id} .${wsgrid_body}` ).empty();
+        // let row_html = this.generateRows();
+        //
+        // $( `#${this.id} .${wsgrid_body}` ).append( row_html );
+    }
+
+    /**
+     * Getter/setter for the value of a given cell.
+     * @param  {String} columnName - Name of the column to get the data from
+     * @param  {Number} rowId      - record id number.
+     * @param  {Mixed}  value      - If setting the value of a cell, this is the value to set.
+     * @return {Mixed}             - If getting the value of a cell, this is the value returned.
+     */
+    cell_value( column_name, row_id, value ) {
+
+        if( typeof( value ) == 'undefined' ) {
+            return this.data[ row_id ][ column_name ];
+        }
+        else {
+            this.data[ row_id ][ column_name ] = value;
+        }
+    }
+
+
+    /**
+     * Return all rows that are currently selected.
+     * If no row is selected return an empty array.
+     * @return {Array} - array of rows numbers.
+     */
+    get_selected_rows() {
+        let selection = $( `#${this.id} .selected` );
+        let records = [];
+
+        if( selection.length > 0 ) {
+            for( let i = 0; i < selection.length; i++ ) {
+                records.push( selection[ i ].data( 'record-id' ) );
+            }
+        }
+
+        return records;
+    }
+
     /***********************************************************************************
      * Event handlers:
      *
@@ -326,12 +412,12 @@ export class Grid extends Object_Base {
      ***********************************************************************************/
 
     /**
-     * click( row, columnName, rowData )
+     * click( row, columnName, row_data )
      * Event - Fires when the user clicks on a cell.
      * Paraemeters:
      *    row        - record id in data array or the row clicked on.
      *    columnName - Name of the column clicked on.
-     *    rowData    - data object for the row clicked on.
+     *    row_data    - data object for the row clicked on.
      */
     click( event ) {
         let classList = event.target.classList;
@@ -369,12 +455,12 @@ export class Grid extends Object_Base {
     }
 
     /**
-     * dblclick( row, columnName, rowData )
+     * dblclick( row, columnName, row_data )
      * Event - Fires when the user double clicks on a cell.
      * Paraemeters:
      *    row        - record id in data array or the row clicked on.
      *    columnName - Name of the column clicked on.
-     *    rowData    - data object for the row clicked on.
+     *    row_data    - data object for the row clicked on.
      */
     dblclick( event ) {
         let classList = event.target.classList;
@@ -456,7 +542,7 @@ export class Grid extends Object_Base {
 
             this.sort_direction = ( this.sort_direction == 'asc' ? 'desc' : 'asc' );
 
-            this.fill_grid();
+            this.display_grid();
         }
     }
 
@@ -562,7 +648,8 @@ export class Grid extends Object_Base {
                 return;
             }
 
-            if( self._close_editor( event, cell ) ) {
+            let column_name = self.column_model[ index ].name;
+            if( self._close_editor( event, cell, column_name ) ) {
                 document.removeEventListener( 'click', click_close_editor );
             }
         } );
@@ -575,16 +662,23 @@ export class Grid extends Object_Base {
      * Close event for the inline editor.
      * The user can override it by creating an before_inline_closed event and returning false;
      * @param  {Event} event   -
-     * @return {[type]}       [description]
+     * @param
+     * @param
+     * @return {Boolean}       - did the editor close?
      */
-    _close_editor( event, cell ) {
+    _close_editor( event, cell, column_name ) {
         if( typeof( this.events.before_inline_closed ) == 'function' ) {
             if( ! this.events.before_inline_closed( row, column, value, row_data ) ) {
                 return false;
             }
         }
+        let new_value = cell.firstChild.value;
+        cell.innerHTML = new_value;
 
-        cell.innerHTML = cell.firstChild.value;
+        //TODO: is there a better way to get the recordId instead of hard coding it?
+        let row_id = cell.closest( `.${wsgrid_row}` ).dataset.recordId;
+
+        this.data[ row_id ][ column_name ] = new_value;
         return true;
     }
 
