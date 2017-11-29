@@ -1,16 +1,17 @@
 # wsGrid
 
-This project is a basic table/grid that gets it's data from a WebSocket connection.
+This project is a basic table/grid that can get it's data from a remote source.
+It is intentionally using modern JavaScript features that do not work with older browsers.
 
 ## Features
 
-* optional header clicking to sort columns.
-* optional zebra striping.
-* optional cell/row click, double click events.
-* does not require any third party libraries to use.
-* it uses modern JavaScript technologies, so don't expect it to work in older browser.
-* is designed to be easily themed.
-* is designed to be used with WebSockets, but also to be used with other data sources.
+* Optional header clicking to sort columns.
+* Optional zebra striping.
+* Optional cell/row click, double click events.
+* Does not require any third party libraries to use.
+* It uses modern JavaScript technologies, so don't expect it to work in older browser.
+* Is designed to be easily themed.
+* Is designed to be used with WebSockets, but also to be used with other data sources.
 
 This project takes some inspiration from jqGrid.
 
