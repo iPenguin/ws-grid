@@ -2,14 +2,22 @@
  *
  */
 .wsgrid__table {
-    border-collapse:collapse;
+    background-color: white;
+    border: 1px solid lightgray;
+    border-collapse: collapse;
+    display: block;
+    font-size: 14px;
+    height: 100%;
+    overflow: auto;
+    position:relative;
+    width: calc( 100% - 10px );
 
     thead {
-    	display: block;
-    	overflow: auto;
         background-color: lightgray;
         cursor: pointer;
+    	display: block;
         margin-right: 7px;
+    	overflow: auto;
     }
 
     tbody {
@@ -28,10 +36,15 @@
         padding: 3px;
         border-right: 1px solid black;
     }
+    th:last-of-type,
+    td:last-of-type {
+        border-right: none;
+    }
     td:hover {
         background-color: #f8f8f8;
     }
     td.selected {
+        background-color: #a0a0a0; /* light gray */
         border: 1px solid LightSkyBlue;
     }
 }
@@ -41,4 +54,8 @@
 }
 .wsgrid__row_even {
     background-color: white;
+}
+
+.wsgrid__totals {
+    font-weight: bold;
 }

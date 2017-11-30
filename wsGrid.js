@@ -41,10 +41,12 @@ const wsgrid_prefix = 'wsgrid_';
 const wsgrid_header = `${wsgrid_prefix}_header`;
 const wsgrid_table  = `${wsgrid_prefix}_table`;
 const wsgrid_body   = `${wsgrid_prefix}_body`;
-const wsgrid_column = `${wsgrid_prefix}_column`;
 const wsgrid_row    = `${wsgrid_prefix}_row`;
+const wsgrid_column = `${wsgrid_prefix}_column`;
+const wsgrid_cell   = `${wsgrid_prefix}_cell`;
 const wsgrid_editor = `${wsgrid_prefix}_editor`;
 const wsgrid_totals = `${wsgrid_prefix}_totals`;
+const wsgrid_data   = `${wsgrid_prefix}_data`;
 
 let column_defaults = {
     name:     '',
@@ -55,8 +57,16 @@ let column_defaults = {
     hidden:   false,
     sort:     'text',
     editable: false,
+    format:   ( value ) => {
+        return value;
+    }
 };
 
+/**
+ * Convert HTML entities into encoded elements that can be displayed on the page.
+ * @param  {String} string - String we are parsing
+ * @return {String}        - New string with the HTML elements converted.
+ */
 function convert_html_entities( string ) {
     let tags_to_replace = {
         '&': '&amp;',
@@ -110,6 +120,7 @@ export class Grid extends Object_Base {
         grid_body.addEventListener( 'click', ( event ) => { this.click.call( this, event ); } );
         grid_body.addEventListener( 'dblclick', ( event ) => { this.dblclick.call( this, event ); } );
         grid_body.addEventListener( 'load_complete', ( event ) => { this.load_complete.call( this, event ); } );
+        grid_body.addEventListener( `${wsgrid_data}.cell_change`, ( event ) => { this.data_changed.call( this, event ); } );
 
         let grid_header = this.grid.querySelector( `.${wsgrid_header}` );
         grid_header.addEventListener( 'click', ( event ) => { this.header_click.call( this, event ); } );
@@ -137,14 +148,21 @@ export class Grid extends Object_Base {
         let fixed_width = 0;
         let flex_width = 0;
         this.column_types = {};
+        this.column_state = {};
 
         this.data = [];
         this.totals_data = undefined;
 
         // loop through the columns and gather information about widths...
         for( let i = 0; i < count; i++ ) {
+            // fill in any missing default values.
+            this.column_model[ i ] = Object.assign( {}, column_defaults, options.column_model[ i ] );
+
             // Create a quick lookup table for column type/format, so we know how to sort data
             this.column_types[ this.column_model[ i ].name ] = this.column_model[ i ].type;
+
+            // Quick lookup and session storage for the column's state.
+            this.column_state[ this.column_model[ i ].name ] = this.column_model[ i ].hidden;
 
             let isHidden = this.column_model[ i ].hidden;
             if( isHidden ) {
@@ -183,8 +201,6 @@ export class Grid extends Object_Base {
         if( gridElement == null ) {
             throw new Error( `Could not find grid element. Is ${this.id} an element in the DOM?` );
         }
-
-
     }
 
     /**
@@ -196,8 +212,8 @@ export class Grid extends Object_Base {
         let table_header = `<tr class="${wsgrid_header}_row" style="min-width:${this.min_column_width}px">`;
 
         for( let i = 0; i < column_count; i++ ) {
-            let isHidden = this.column_model[ i ].hidden;
-            if( typeof( isHidden ) !== 'undefined' && isHidden == true ) {
+            let isHidden = this.column_state[ columnName ];
+            if( isHidden == true ) {
                 continue;
             }
 
@@ -237,6 +253,9 @@ export class Grid extends Object_Base {
         this._generate_rows();
     }
 
+    /**
+     * Generate the table rows using the internal data array
+     */
     _generate_rows() {
         // this tables body.
         let table_body = document.querySelector( `table.${wsgrid_table}_${this.id} .${wsgrid_body}` );
@@ -289,20 +308,19 @@ export class Grid extends Object_Base {
         let row_html = `<tr class="${classes}" data-record-id="${record_id}">`;
         let col_count = this.column_model.length;
         for( let col = 0; col < col_count; col++ ) {
-            let isHidden = this.column_model[ col ].hidden;
+            let column_name = this.column_model[ col ].name;
+            let isHidden = this.column_state[ columnName ];
 
-            if( typeof( isHidden ) !== 'undefined' && isHidden == true ) {
+            if( isHidden == true ) {
                 continue;
             }
 
-            let column_name = this.column_model[ col ].name;
-
             let value = '';
-            if( typeof( data[ column_name ] ) !== 'undefined' ) {
-                value = data[ column_name ];
-            }
-            else if( typeof( this.column_model[ col ].format ) == 'function' ) {
+            if( typeof( this.column_model[ col ].format ) == 'function' ) {
                 value = this.column_model[ col ].format( data[ column_name ], data );
+            }
+            else if( typeof( data[ column_name ] ) !== 'undefined' ) {
+                value = data[ column_name ];
             }
 
             /*********************************************************************************
@@ -404,6 +422,21 @@ export class Grid extends Object_Base {
     }
 
     /**
+     * Delete all rows listed in the given array.
+     * @param  {Array} rows     - List of rows in the form of an array.
+     */
+    delete_rows( rows ) {
+
+        for( let i = 0; i < rows.length; i++ ) {
+            let row = rows[ i ];
+            this.data[ row ].splice( row, 1 );
+        }
+
+        //TODO: make a refresh function
+        //this.refresh();
+    }
+
+    /**
      * Getter/setter for the value of a given cell.
      * @param  {String} columnName - Name of the column to get the data from
      * @param  {Number} rowId      - record id number.
@@ -416,10 +449,23 @@ export class Grid extends Object_Base {
             return this.data[ row_id ][ column_name ];
         }
         else {
+            let old_value = this.data[ rowId ][ columnName ];
+
+            if( old_value == value ) {
+                return;
+            }
+
             this.data[ row_id ][ column_name ] = value;
+            let e = new Event( `${wsgrid_data}.cell_changed`, { bubbles: true } );
+            e.change = [ {
+                row:       row_id,
+                column:    column_name,
+                new_value:  value,
+                old_value: old_value,
+            } ];
+            document.dispatchEvent( e );
         }
     }
-
 
     /**
      * Return all rows that are currently selected.
@@ -437,6 +483,27 @@ export class Grid extends Object_Base {
         }
 
         return records;
+    }
+
+    /**
+     * Show/hide column based on the state.
+     * @param  {String}  column_name   - Name of the column to show/hide.
+     * @param  {Boolean} [state=true] - show the column?
+     */
+    show_column( column_name, state = true ) {
+        this.column_state[ column_name ] = ( state ? false : true );
+
+        //TODO: reset column widths
+
+        //TODO: make a refresh function
+        //this.refresh();
+    }
+
+    /**
+     * Wrapper for showColumn( column_name, false );
+     */
+    hide_column( column_name ) {
+        this.show_column( column_name, false );
     }
 
     /***********************************************************************************
@@ -547,6 +614,20 @@ export class Grid extends Object_Base {
     }
 
     /**
+     * data_changed( change )
+     * Event - Fires when the user clicks on a cell.
+     * Paraemeters:
+     *    row         - record id in data array or the row clicked on.
+     *    column_name - Name of the column clicked on.
+     *    row_data    - data object for the row clicked on.
+     */
+    data_changed( event ) {
+        if( typeof( this.events.data_changed ) == 'function' ) {
+            this.events.data_changed( e.change );
+        }
+    }
+
+    /**
      * This event fires when the header columns are clicked
      * The default event is to sort the data by the given column.
      * Asending first, then descending.
@@ -630,7 +711,7 @@ export class Grid extends Object_Base {
         switch( type ) {
             case 'text':
             case 'string':
-                return String( value );
+                return String( value ).toLowerCase();
             case 'number':
                 return Number( value );
             //TODO: include moment.js
@@ -660,18 +741,34 @@ export class Grid extends Object_Base {
         }
 
         let value = convert_html_entities( cell_value );
+
+        let checked = '';
+
+        if( properties.type == 'checkbox' &&
+            Number( value ) == 1 ) {
+            checked = 'checked';
+        }
+
         editor = `<input type="${properties.type}" class="${wsgrid_editor}_main_editor"`
                 + `style="width:${this.column_widths[ index ]}px;text-align:${properties.align}" `
-                + `value=\"${value}\">`;
+                + `value=\"${value}\" ${checked}>`;
 
+        cell.dataset.oldvalue = cell.innerHTML;
         cell.innerHTML = editor;
         let self = this;
 
+        // Force an enter event to be a blur event and leave the field.
         cell.firstChild.addEventListener( 'keyup', ( event ) => {
             if( event.keyCode == 13 ) {
-                let e = new Event( 'click' );
-                cell.dispatchEvent( e );
+                let e = new Event( 'focusout' );
+                cell.firstChild.dispatchEvent( e );
             }
+        } );
+
+        // Force the blur event to save and close the editor.
+        cell.firstChild.addEventListener( 'focusout', ( event ) => {
+            let e = new Event( 'click' );
+            document.dispatchEvent( e );
         } );
 
         document.addEventListener( 'click', function click_close_editor( event ) {
@@ -690,6 +787,7 @@ export class Grid extends Object_Base {
 
         // Let the user edit right away.
         cell.firstChild.focus();
+        cell.firstChild.select();
     }
 
     /**
@@ -706,14 +804,45 @@ export class Grid extends Object_Base {
                 return false;
             }
         }
-        let new_value = cell.firstChild.value;
-        cell.innerHTML = new_value;
-
         //TODO: is there a better way to get the recordId instead of hard coding it?
         let row_id = cell.closest( `.${wsgrid_row}` ).dataset.recordId;
+        let new_value = cell.firstChild.value;
+
+        if( cell.firstChild.type == 'checkbox'
+            && cell.firstChild.checked ) {
+            new_value = 1;
+        }
+        else {
+            new_value = 0;
+        }
+
+        let columnNumber = this._getNumberFromColumnName( column_name );
+        new_value = this.colModel[ columnNumber ].format( new_value );
+
+        cell.innerHTML = new_value;
 
         this.data[ row_id ][ column_name ] = new_value;
+        let old_value = cell.dataset.oldvalue;
+
+        let e = new Event( `${wsgrid_data}.cell_changed`, { bubbles: true } );
+        e.change = [ {
+            row:       row_id,
+            column:    column_name,
+            new_value: new_value,
+            old_value: old_value,
+        } ];
+
+        cell.dispatchEvent( e );
+
         return true;
+    }
+
+    _getNumberFromColumnName( columnName ) {
+        for( let i = 0; i < this.colModel.length; i++ ) {
+            if( this.colModel[ i ].name == columnName ) {
+                return i;
+            }
+        }
     }
 
     /**
@@ -722,6 +851,35 @@ export class Grid extends Object_Base {
      */
     row_count() {
         return this.data.length;
+    }
+
+
+    /**
+             * Print this grid on paper.
+             * Code leveraged from: http://www.trirand.com/blog/?page_id=393/help/improved-print-grid-function
+             **/
+    print() {
+        // attach print container style and div to DOM.
+        $( 'head' ).append( '<style type="text/css">.prt-hide {display:none;}</style>' );
+        $( 'body' ).append( '<div id="prt-container" class="prt-hide"></div>' );
+
+        // empty the print div container.
+        $( '#prt-container' ).empty();
+
+        // copy and append grid view to print div container.
+        $( `#${this.id}` ).clone().appendTo( '#prt-container' ).css( { 'page-break-after': 'auto' } );
+
+        // remove navigation div.
+        $( '#prt-container div' ).remove( '.ui-jqgrid-toppager,.ui-jqgrid-titlebar,.ui-jqgrid-pager' );
+
+        // print the contents of the print container.
+        $( '#prt-container' ).printElement( {
+            pageTitle:          this.title,
+            overrideElementCSS: [ {
+                href:  'include/wsGrid.css',
+                media: 'print'
+            } ]
+        } );
     }
 
     /**
@@ -768,6 +926,89 @@ export class Grid extends Object_Base {
         }
 
         //TODO: user feedback alert( "data copied");
+    }
+
+    /**********************************************************************
+     * Format functions
+     **********************************************************************/
+
+    /**
+     * A field formatter for boolean data.
+     * True is 'X' false, is blank.
+     */
+    formatBoolean( cellValue ) {
+        if( Number( cellValue ) == 1 ) {
+            return "X";
+        }
+
+        return '';
+    }
+
+    formatDate( cellValue ) {
+
+        let date = moment( cellValue );
+        return date.format( 'M/D/YYYY' );
+    }
+
+
+    /**
+     * Convert a dollar amount to a simple number.
+     **/
+    fromCurrency( string ) {
+
+        if( typeof( string ) == 'string' ) {
+            if( string.indexOf( '$' ) != -1 ) {
+                string = string.replace( '$', '' );
+            }
+            if( string.indexOf( ',' ) != -1 ) {
+                string = string.replace( ',', '' );
+            }
+
+            // make it negative
+            if( string.indexOf( '(' ) != -1 ) {
+                string = string.replace( '(', '-' );
+                string = string.replace( ')', '' );
+            }
+        }
+
+        return Number( string );
+    }
+
+    /**
+     * Convert a number to a dollar amount string.
+     **/
+    toCurrency( amount ) {
+        amount = numberNs.withPrecision( amount, 2, true );
+
+        // Perl module Data::Money passes the value as a number.
+        if( typeof( amount ) == 'number' ) {
+            let isNegative = false;
+
+            if( amount < 0 ) {
+                amount = Math.abs( amount );
+                isNegative = true;
+            }
+            amount = ( isNegative == true ? `($${amount})` : `$${amount}` );
+
+        // Perl module Math::Currency passes the value as a string.
+        }
+        else if( typeof( amount ) == 'string' ) {
+            amount = numberNs.withPrecision( amount, 2, true );
+            let floatAmount = Number( amount );
+
+            let isNegative = false;
+
+            if( floatAmount < 0 ) {
+                amount = amount.replace( '-', '' );
+                isNegative = true;
+            }
+
+            if( amount.indexOf( '$' ) == -1 ) {
+                amount = ( isNegative == true ? `($${amount})` : `$${amount}` );
+            }
+        }
+
+        return amount;
     }
 
 };

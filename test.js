@@ -29,6 +29,11 @@ let grid = new Grid( {
     }
 } );
 
+grid.set_totals_row( {
+    first_name: 'This is a totals row',
+    age:        '45',
+} );
+
 grid.display( [
     { id: 1, first_name: 'John', last_name: 'Smith',   age: 28, height: '5\'10"', dob: '1985-10-21', color: '#FFC0CB' },
     { id: 2, first_name: 'Jane', last_name: 'Doe',     age: 26, height: '5\'6"', dob: '1982-12-03', color: '#DB7093' },
@@ -55,7 +60,6 @@ grid.display( [
     { id: 124, first_name: 'Beverly', last_name: 'Johnson', age: 62, height: '5\'3"', dob: '2005-11-6', color: '#228B22'  },
     { id: 123, first_name: 'Matt', last_name: 'Miller',  age: 45, height: '5\'9"', dob: '2001-04-30', color: '#006400' },
 ] );
-
 
 let select = document.getElementById( 'filter_column' );
 //Create a drop down to select the column to filter on.
