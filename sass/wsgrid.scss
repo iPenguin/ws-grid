@@ -13,10 +13,11 @@
     width: calc( 100% - 10px );
 
     thead {
-        background-color: lightgray;
+        tr {
+            background-color: lightgray;
+        }
         cursor: pointer;
     	display: block;
-        margin-right: 7px;
     	overflow: auto;
     }
 
@@ -31,10 +32,10 @@
 
     th,
     td {
+        border-right: 1px solid black;
+        padding: 3px;
     	text-align: left;
     	vertical-align: top;
-        padding: 3px;
-        border-right: 1px solid black;
     }
     th:last-of-type,
     td:last-of-type {
@@ -48,14 +49,14 @@
         border: 1px solid LightSkyBlue;
     }
 }
-
 .wsgrid__row_odd {
     background-color: lightcyan;
 }
 .wsgrid__row_even {
     background-color: white;
 }
-
-.wsgrid__totals {
+.wsgrid__totals td {
+    border-bottom: 1px solid black;
+    border-top: 1px solid black;
     font-weight: bold;
 }

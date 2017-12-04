@@ -144,11 +144,8 @@ export class Grid extends Object_Base {
             this.column_model[ i ] = Object.assign( {}, column_defaults, this.column_model[ i ] );
         }
 
-        let grid_width = this.width; //this.grid.offsetWidth;
-        let fixed_width = 0;
-        let flex_width = 0;
         this.column_types = {};
-        this.column_state = {};
+        this.column_hidden = {};
 
         this.data = [];
         this.totals_data = undefined;
@@ -156,13 +153,33 @@ export class Grid extends Object_Base {
         // loop through the columns and gather information about widths...
         for( let i = 0; i < count; i++ ) {
             // fill in any missing default values.
-            this.column_model[ i ] = Object.assign( {}, column_defaults, options.column_model[ i ] );
+            this.column_model[ i ] = Object.assign( {}, column_defaults, this.column_model[ i ] );
 
             // Create a quick lookup table for column type/format, so we know how to sort data
             this.column_types[ this.column_model[ i ].name ] = this.column_model[ i ].type;
 
             // Quick lookup and session storage for the column's state.
-            this.column_state[ this.column_model[ i ].name ] = this.column_model[ i ].hidden;
+            this.column_hidden[ this.column_model[ i ].name ] = this.column_model[ i ].hidden;
+        }
+
+        this._calculate_columns();
+
+        // Make sure the element the user wants is actually in the DOM, if not throw an error the user can figure out.
+        let gridElement = document.getElementById( this.id );
+        if( gridElement == null ) {
+            throw new Error( `Could not find grid element. Is ${this.id} an element in the DOM?` );
+        }
+    }
+
+    _calculate_columns() {
+        let count = this.column_model.length;
+
+        let grid_width = this.width; //this.grid.offsetWidth;
+        let fixed_width = 0;
+        let flex_width = 0;
+
+        // loop through the columns and gather information about widths...
+        for( let i = 0; i < count; i++ ) {
 
             let isHidden = this.column_model[ i ].hidden;
             if( isHidden ) {
@@ -195,12 +212,6 @@ export class Grid extends Object_Base {
         else {
             this.min_column_width = 0;
         }
-
-        // Make sure the element the user wants is actually in the DOM, if not throw an error the user can figure out.
-        let gridElement = document.getElementById( this.id );
-        if( gridElement == null ) {
-            throw new Error( `Could not find grid element. Is ${this.id} an element in the DOM?` );
-        }
     }
 
     /**
@@ -211,22 +222,7 @@ export class Grid extends Object_Base {
 
         let table_header = `<tr class="${wsgrid_header}_row" style="min-width:${this.min_column_width}px">`;
 
-        for( let i = 0; i < column_count; i++ ) {
-            let isHidden = this.column_state[ columnName ];
-            if( isHidden == true ) {
-                continue;
-            }
-
-            /*********************************************************************************
-             * Generate Headers
-             *********************************************************************************/
-            let column_name = this.column_model[ i ].name;
-            table_header += `<th class="${wsgrid_header}_column ${wsgrid_header}_column_${column_name}" `
-                + `style="width:${this.column_widths[ i ]}px;`
-                + `text-align:${this.column_model[ i ].align};">`
-                + this.column_model[ i ].label
-                + '</th>';
-        }
+        table_header += this._generate_column_headers( '' );
         table_header += '</tr>';
 
         let html = `<table class="${wsgrid_table} ${wsgrid_table}_${this.id}">`
@@ -305,22 +301,29 @@ export class Grid extends Object_Base {
         /*********************************************************************************
          * Generate Rows
          *********************************************************************************/
-        let row_html = `<tr class="${classes}" data-record-id="${record_id}">`;
+        let row_html = `<tr class="${classes}" data-recordid="${record_id}">`;
         let col_count = this.column_model.length;
         for( let col = 0; col < col_count; col++ ) {
             let column_name = this.column_model[ col ].name;
-            let isHidden = this.column_state[ columnName ];
+            let isHidden = this.column_hidden[ column_name ];
 
             if( isHidden == true ) {
                 continue;
             }
 
             let value = '';
-            if( typeof( this.column_model[ col ].format ) == 'function' ) {
-                value = this.column_model[ col ].format( data[ column_name ], data );
-            }
-            else if( typeof( data[ column_name ] ) !== 'undefined' ) {
-                value = data[ column_name ];
+            // if there is data to display figure out how to display it.
+            if( typeof( data[ column_name ] ) !== 'undefined' ) {
+                if( typeof( this.column_model[ col ].format ) == 'string' ) {
+                    let formatType = this.column_model[ col ].format;
+                    value = this[ `format_${formatType.toLowerCase()}` ]( data[ column_name ] );
+                }
+                else if( typeof( this.column_model[ col ].format ) == 'function' ) {
+                    value = this.column_model[ col ].format( data[ column_name ], data );
+                }
+                else {
+                    value = data[ column_name ];
+                }
             }
 
             /*********************************************************************************
@@ -339,6 +342,31 @@ export class Grid extends Object_Base {
         row_html += '</tr>';
 
         return row_html;
+    }
+
+    _generate_column_headers( columnClasses ) {
+        let header_row = '';
+
+        for( let column = 0; column < this.column_model.length; column++ ) {
+            let column_name = this.column_model[ column ].name;
+
+            // Don't display hidden columns.
+            if( this.column_hidden[ column_name ] ) {
+                continue;
+            }
+
+            /*********************************************************************************
+             * Generate Columns
+             *********************************************************************************/
+
+            header_row += `<th class=" ${wsgrid_header}_column `
+                        + `${wsgrid_header}_column_${this.column_model[ column ].name}" `
+                        + `style="width:${this.column_widths[ column ]}px; `
+                        + `text-align:${this.column_model[ column ].align};">`
+                        + this.column_model[ column ].label + '</th>';
+        }
+
+        return header_row;
     }
 
     /**
@@ -399,6 +427,16 @@ export class Grid extends Object_Base {
         else {
             this.totals_data = row_data;
         }
+
+        let grid_body = document.getElementsByClassName( `.${wsgrid_body}` );
+        if( grid_body.length != 0 ) {
+            let element = grid_body.querySelector( `.${wsgrid_totals}` );
+            if( element !== null ) {
+                element.remove();
+            }
+            let headerData = this._generate_totals_row();
+            grid_body.append( headerData );
+        }
     }
 
     _generate_totals_row() {
@@ -416,9 +454,18 @@ export class Grid extends Object_Base {
     refresh() {
         //TODO: make a refresh button work
         // $( `#${this.id} .${wsgrid_body}` ).empty();
-        // let row_html = this.generateRows();
+        // let rowData = this.generateRows();
         //
-        // $( `#${this.id} .${wsgrid_body}` ).append( row_html );
+        // $( `#${this.id} .${wsgrid_body}` ).append( rowData );
+        //
+        // $( `#${this.id} .${wsgrid_header}_row` ).empty();
+        // let headerData = this._generate_column_headers();
+        // $( `#${this.id} .${wsgrid_header}_row` ).append( headerData );
+        //
+        // let gridElement = document.getElementById( this.id );
+        // let event = document.createEvent( 'HTMLEvents' );
+        // event.initEvent( 'gridComplete', true, true );
+        // gridElement.dispatchEvent( event );
     }
 
     /**
@@ -438,7 +485,7 @@ export class Grid extends Object_Base {
 
     /**
      * Getter/setter for the value of a given cell.
-     * @param  {String} columnName - Name of the column to get the data from
+     * @param  {String} column_name - Name of the column to get the data from
      * @param  {Number} rowId      - record id number.
      * @param  {Mixed}  value      - If setting the value of a cell, this is the value to set.
      * @return {Mixed}             - If getting the value of a cell, this is the value returned.
@@ -449,7 +496,7 @@ export class Grid extends Object_Base {
             return this.data[ row_id ][ column_name ];
         }
         else {
-            let old_value = this.data[ rowId ][ columnName ];
+            let old_value = this.data[ rowId ][ column_name ];
 
             if( old_value == value ) {
                 return;
@@ -491,7 +538,7 @@ export class Grid extends Object_Base {
      * @param  {Boolean} [state=true] - show the column?
      */
     show_column( column_name, state = true ) {
-        this.column_state[ column_name ] = ( state ? false : true );
+        this.column_hidden[ column_name ] = ( state ? false : true );
 
         //TODO: reset column widths
 
@@ -506,6 +553,12 @@ export class Grid extends Object_Base {
         this.show_column( column_name, false );
     }
 
+    toggleColumn( column_name ) {
+        let newState = ( ! this.column_hidden[ column_name ] == true );
+        this.column_hidden[ column_name ] = newState;
+        this.refresh();
+    }
+
     /***********************************************************************************
      * Event handlers:
      *
@@ -513,11 +566,11 @@ export class Grid extends Object_Base {
      ***********************************************************************************/
 
     /**
-     * click( row, columnName, row_data )
+     * click( row, column_name, row_data )
      * Event - Fires when the user clicks on a cell.
      * Paraemeters:
      *    row        - record id in data array or the row clicked on.
-     *    columnName - Name of the column clicked on.
+     *    column_name - Name of the column clicked on.
      *    row_data    - data object for the row clicked on.
      */
     click( event ) {
@@ -556,11 +609,11 @@ export class Grid extends Object_Base {
     }
 
     /**
-     * dblclick( row, columnName, row_data )
+     * dblclick( row, column_name, row_data )
      * Event - Fires when the user double clicks on a cell.
      * Paraemeters:
      *    row        - record id in data array or the row clicked on.
-     *    columnName - Name of the column clicked on.
+     *    column_name - Name of the column clicked on.
      *    row_data    - data object for the row clicked on.
      */
     dblclick( event ) {
@@ -742,11 +795,20 @@ export class Grid extends Object_Base {
 
         let value = convert_html_entities( cell_value );
 
+        if( properties.type == 'number' ) {
+            value = this.from_currency( value );
+        }
+
         let checked = '';
 
         if( properties.type == 'checkbox' &&
             Number( value ) == 1 ) {
             checked = 'checked';
+        }
+        else if( properties.type == 'date' ) {
+            if( value.indexOf( '/' ) >= 0 ) {
+                value = moment( value, 'MM/DD/YYYY' ).format( 'YYYY-MM-DD' );
+            }
         }
 
         editor = `<input type="${properties.type}" class="${wsgrid_editor}_main_editor"`
@@ -760,8 +822,7 @@ export class Grid extends Object_Base {
         // Force an enter event to be a blur event and leave the field.
         cell.firstChild.addEventListener( 'keyup', ( event ) => {
             if( event.keyCode == 13 ) {
-                let e = new Event( 'focusout' );
-                cell.firstChild.dispatchEvent( e );
+                cell.firstChild.blur();
             }
         } );
 
@@ -804,42 +865,51 @@ export class Grid extends Object_Base {
                 return false;
             }
         }
+
         //TODO: is there a better way to get the recordId instead of hard coding it?
-        let row_id = cell.closest( `.${wsgrid_row}` ).dataset.recordId;
+        let row_id = cell.closest( `.${wsgrid_row}` ).dataset.recordid;
         let new_value = cell.firstChild.value;
 
-        if( cell.firstChild.type == 'checkbox'
-            && cell.firstChild.checked ) {
-            new_value = 1;
-        }
-        else {
-            new_value = 0;
+        if( cell.firstChild.type == 'checkbox' ) {
+            if( cell.firstChild.checked ) {
+                new_value = 1;
+            }
+            else {
+                new_value = 0;
+            }
         }
 
-        let columnNumber = this._getNumberFromColumnName( column_name );
-        new_value = this.colModel[ columnNumber ].format( new_value );
+        let column_number = this._get_number_from_column_name( column_name );
+
+        let formatType = typeof( this.column_model[ column_number ].format );
+        if( formatType == 'string' ) {
+            new_value = this[ `format_${this.column_model[ column_number ].format.toLowerCase()}` ]( new_value );
+        }
+        if( formatType == 'function' ) {
+            new_value = this.column_model[ column_number ].format( new_value );
+        }
 
         cell.innerHTML = new_value;
 
         this.data[ row_id ][ column_name ] = new_value;
+
         let old_value = cell.dataset.oldvalue;
 
         let e = new Event( `${wsgrid_data}.cell_changed`, { bubbles: true } );
-        e.change = [ {
+        e.changes = [ {
             row:       row_id,
             column:    column_name,
             new_value: new_value,
             old_value: old_value,
         } ];
-
         cell.dispatchEvent( e );
 
         return true;
     }
 
-    _getNumberFromColumnName( columnName ) {
-        for( let i = 0; i < this.colModel.length; i++ ) {
-            if( this.colModel[ i ].name == columnName ) {
+    _get_number_from_column_name( column_name ) {
+        for( let i = 0; i < this.column_model.length; i++ ) {
+            if( this.column_model[ i ].name == column_name ) {
                 return i;
             }
         }
@@ -853,11 +923,10 @@ export class Grid extends Object_Base {
         return this.data.length;
     }
 
-
     /**
-             * Print this grid on paper.
-             * Code leveraged from: http://www.trirand.com/blog/?page_id=393/help/improved-print-grid-function
-             **/
+     * Print this grid on paper.
+     * Code leveraged from: http://www.trirand.com/blog/?page_id=393/help/improved-print-grid-function
+     */
     print() {
         // attach print container style and div to DOM.
         $( 'head' ).append( '<style type="text/css">.prt-hide {display:none;}</style>' );
@@ -936,7 +1005,7 @@ export class Grid extends Object_Base {
      * A field formatter for boolean data.
      * True is 'X' false, is blank.
      */
-    formatBoolean( cellValue ) {
+    format_boolean( cellValue ) {
         if( Number( cellValue ) == 1 ) {
             return "X";
         }
@@ -944,17 +1013,30 @@ export class Grid extends Object_Base {
         return '';
     }
 
-    formatDate( cellValue ) {
+    /**
+     * Field formatter for dates.
+     */
+    format_date( cellValue ) {
+        let format = 'YYYY-MM-DD';
 
-        let date = moment( cellValue );
+        if( cellValue.indexOf( '/' ) >= 0 ) {
+            format = 'M/D/YYYY';
+        }
+
+        let date = moment( cellValue, format );
         return date.format( 'M/D/YYYY' );
+    }
+
+    format_currency( cellValue ) {
+        let value = this.from_currency( cellValue );
+        return this.to_currency( value );
     }
 
 
     /**
      * Convert a dollar amount to a simple number.
-     **/
-    fromCurrency( string ) {
+     */
+    from_currency( string ) {
 
         if( typeof( string ) == 'string' ) {
             if( string.indexOf( '$' ) != -1 ) {
@@ -977,8 +1059,8 @@ export class Grid extends Object_Base {
     /**
      * Convert a number to a dollar amount string.
      **/
-    toCurrency( amount ) {
-        amount = numberNs.withPrecision( amount, 2, true );
+    to_currency( amount ) {
+        amount = numberNs.with_precision( amount, 2, true );
 
         // Perl module Data::Money passes the value as a number.
         if( typeof( amount ) == 'number' ) {
@@ -993,7 +1075,7 @@ export class Grid extends Object_Base {
         // Perl module Math::Currency passes the value as a string.
         }
         else if( typeof( amount ) == 'string' ) {
-            amount = numberNs.withPrecision( amount, 2, true );
+            amount = numberNs.with_precision( amount, 2, true );
             let floatAmount = Number( amount );
 
             let isNegative = false;
@@ -1011,4 +1093,29 @@ export class Grid extends Object_Base {
         return amount;
     }
 
+    /**
+     * If there isn't enough precision in the number add it,
+     * but don't truncate if there is more then the minimum precision,
+     * unless the limitPrecision flag is set.
+     *
+     * @retval stirng
+     **/
+    with_precision( number, places = 2, limitPrecision = false ) {
+        let numberString = String( number );
+        number = Number( number );
+
+        let newVal = '';
+        let index = numberString.indexOf( '.' );
+
+        index++; //index is zero based, correct for position in string.
+
+        if( ( numberString.length - index ) > places ) {
+            newVal = Math.round( number * Math.pow( 10, places ), places ) / Math.pow( 10, places );
+        }
+        else {
+            newVal = number;
+        }
+
+        return newVal.toFixed( places );
+    }
 };
