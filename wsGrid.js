@@ -5,6 +5,7 @@
  * height:          - height of grid. Set the height to an empty string to allow the grid to be the height of the data.
  * width:           - width of grid.
  * column_defaults: - Default values for all columns.
+ * currency         - override function for how to format numbers as currency.
  * column_model:    - a list of options that will define how each column displays it's data.
  *    name              - String   - name of the column in the data.
  *    label             - String   - Label to put in the column header.
@@ -40,6 +41,7 @@ import { Ajax } from './ajax.js';
 const wsgrid_prefix = 'wsgrid_';
 const wsgrid_header = `${wsgrid_prefix}_header`;
 const wsgrid_table  = `${wsgrid_prefix}_table`;
+const wsgrid_footer = `${wsgrid_prefix}_footer`;
 const wsgrid_body   = `${wsgrid_prefix}_body`;
 const wsgrid_row    = `${wsgrid_prefix}_row`;
 const wsgrid_column = `${wsgrid_prefix}_column`;
@@ -112,18 +114,28 @@ export class Grid extends Object_Base {
         this.grid = this.generate_grid();
         this.is_filtered = false;
 
+        this.drag_started = false;
+
+        this.sort_column = '';
         this.sort_direction = 'asc';
 
         let grid_body = this.grid.querySelector( `.${wsgrid_body}` );
+        let grid_header = this.grid.querySelector( `.${wsgrid_header}` );
 
         // conect events.
         grid_body.addEventListener( 'click', ( event ) => { this.click.call( this, event ); } );
         grid_body.addEventListener( 'dblclick', ( event ) => { this.dblclick.call( this, event ); } );
         grid_body.addEventListener( 'load_complete', ( event ) => { this.load_complete.call( this, event ); } );
+        grid_header.addEventListener( 'mousedown', ( event ) => { this.mousedown.call( this, event ); } );
+        grid_header.addEventListener( 'mousemove', ( event ) => { this.mousemove.call( this, event ); } );
+        grid_header.addEventListener( 'mouseup', ( event ) => { this.mouseup.call( this, event ); } );
         grid_body.addEventListener( `${wsgrid_data}.cell_change`, ( event ) => { this.data_changed.call( this, event ); } );
 
-        let grid_header = this.grid.querySelector( `.${wsgrid_header}` );
-        grid_header.addEventListener( 'click', ( event ) => { this.header_click.call( this, event ); } );
+        // Needed for grid resizing.
+        this.grid.style.position = 'relative';
+
+        // let grid_header = this.grid.querySelector( `.${wsgrid_header}_row` );
+        // grid_header.addEventListener( 'click', ( event ) => { this.header_click.call( this, event ); } );
     }
 
     /**
@@ -146,6 +158,8 @@ export class Grid extends Object_Base {
 
         this.column_types = {};
         this.column_hidden = {};
+        this.column_labels = {};
+        this.column_widths_override = {};
 
         this.data = [];
         this.totals_data = undefined;
@@ -160,6 +174,9 @@ export class Grid extends Object_Base {
 
             // Quick lookup and session storage for the column's state.
             this.column_hidden[ this.column_model[ i ].name ] = this.column_model[ i ].hidden;
+
+            // Quick lookup for column labels from column names;
+            this.column_labels[ this.column_model[ i ].name ] = this.column_model[ i ].label;
         }
 
         this._calculate_columns();
@@ -171,6 +188,44 @@ export class Grid extends Object_Base {
         }
     }
 
+    _column_resize_start( e ) {
+        e.preventDefault();
+
+        if( typeof( this.seperator ) == 'undefined' ) {
+            this.seperator = document.createElement( 'div' );
+            this.seperator.id = `${wsgrid_header}_column_resize_visual`;
+        }
+        this.seperator.dataset.column = e.target.dataset.column;
+        let rect = this.grid.getBoundingClientRect();
+        this.seperator.style.top = `${rect.top}px`;
+        this.seperator.style.height = `${rect.height}px`;
+        this.seperator.style.left = `${e.pageX}px`;
+        this.seperator.start_drag = e.pageX;
+        this.grid.append( this.seperator );
+    }
+
+    _column_resize( e ) {
+        e.preventDefault();
+
+        if( this.drag_started ) {
+            this.seperator.dataset.width_delta = ( e.pageX - this.seperator.start_drag );
+            this.seperator.style.left = `${e.pageX}px`;
+        }
+    }
+    _column_resize_end( e ) {
+        e.preventDefault();
+
+        let column_name = this.seperator.dataset.column;
+        let id = this._get_number_from_column_name( column_name );
+
+        let width = Number( this.column_widths[ id ] ) + Number( this.seperator.dataset.width_delta );
+        this.set_column_width( column_name, width );
+
+        // reset delta so we don't keep changning the column width,  by just clicking on it.
+        this.seperator.dataset.width_delta = 0;
+        this.seperator.parentElement.removeChild( this.seperator );
+    }
+
     _calculate_columns() {
         let count = this.column_model.length;
 
@@ -180,12 +235,6 @@ export class Grid extends Object_Base {
 
         // loop through the columns and gather information about widths...
         for( let i = 0; i < count; i++ ) {
-
-            let isHidden = this.column_model[ i ].hidden;
-            if( isHidden ) {
-                continue;
-            }
-
             let isFixed = this.column_model[ i ].fixed;
 
             fixed_width += ( isFixed ? this.column_model[ i ].width : 0 );
@@ -196,6 +245,10 @@ export class Grid extends Object_Base {
         let remaining_width = grid_width - fixed_width;
 
         let column_widths = this.column_model.map( ( x ) => {
+            if( typeof( this.column_widths_override[ x.name ] ) !== 'undefined' ) {
+                return this.column_widths_override[ x.name ];
+            }
+
             if( x.fixed ) {
                 return x.width;
             }
@@ -214,21 +267,30 @@ export class Grid extends Object_Base {
         }
     }
 
+    set_column_width( column_name, width ) {
+        // set minimum width so we can still resize it
+        // and the column doesn't completely disappear.
+        if( width < 2 ) {
+            width = 2;
+        }
+
+        this.column_widths_override[ column_name ] = width;
+        this._calculate_columns();
+        //this.refresh();
+    }
+
     /**
      * Generate the shell of the grid from scratch
      */
     generate_grid() {
         let column_count = this.column_model.length;
 
-        let table_header = `<tr class="${wsgrid_header}_row" style="min-width:${this.min_column_width}px">`;
-
-        table_header += this._generate_column_headers( '' );
-        table_header += '</tr>';
+        let table_header = this._generate_column_headers( '' );
 
         let html = `<table class="${wsgrid_table} ${wsgrid_table}_${this.id}">`
             + `<thead class="${wsgrid_header} ${wsgrid_header}_${this.id}">${table_header}</thead>`
-            + `<tbody class="${wsgrid_body} ${wsgrid_body}_${this.id}" style="height:${this.height}px;`
-            + `width:${this.width + 42 }px"></tbody>`
+            + `<tbody class="${wsgrid_body} ${wsgrid_body}_${this.id}"></tbody>`
+            + `<tfoot class="${wsgrid_footer}"></tfoot>`
             + '</table>';
 
         this.grid_container.innerHTML = html;
@@ -272,7 +334,7 @@ export class Grid extends Object_Base {
                 continue;
             }
 
-            let classes = `${wsgrid_row} ${wsgrid_row}_id_${i}`;
+            let classes = `${wsgrid_row} ${wsgrid_row}_${i}`;
 
             if( zebra % 2 == 0 ) {
                 classes += ` ${wsgrid_row}_even `;
@@ -282,7 +344,7 @@ export class Grid extends Object_Base {
             }
             zebra++;
 
-            row_html += this._generate_row( this.data[ i ], classes, i );
+            row_html += this._generate_row( i, this.data[ i ], classes );
         }
 
         row_html += this._generate_totals_row();
@@ -297,29 +359,28 @@ export class Grid extends Object_Base {
     /**
      * Generate the html for the given row of data.
      */
-    _generate_row( data, classes, record_id ) {
+    _generate_row( record_id, data, row_classes = '', column_classes = '', format = true ) {
         /*********************************************************************************
          * Generate Rows
          *********************************************************************************/
-        let row_html = `<tr class="${classes}" data-recordid="${record_id}">`;
-        let col_count = this.column_model.length;
-        for( let col = 0; col < col_count; col++ ) {
-            let column_name = this.column_model[ col ].name;
-            let isHidden = this.column_hidden[ column_name ];
+        let row_html = `<tr class="${row_classes}"`
+                    + ( record_id == '' ? '' : `data-recordid="${record_id}"` )
+                    + `>`;
 
-            if( isHidden == true ) {
-                continue;
-            }
+        let col_count = this.column_model.length;
+        for( let column = 0; column < col_count; column++ ) {
+            let column_name = this.column_model[ column ].name;
+            let isHidden = this.column_hidden[ column_name ];
 
             let value = '';
             // if there is data to display figure out how to display it.
             if( typeof( data[ column_name ] ) !== 'undefined' ) {
-                if( typeof( this.column_model[ col ].format ) == 'string' ) {
-                    let formatType = this.column_model[ col ].format;
+                if( format && typeof( this.column_model[ column ].format ) == 'string' ) {
+                    let formatType = this.column_model[ column ].format;
                     value = this[ `format_${formatType.toLowerCase()}` ]( data[ column_name ] );
                 }
-                else if( typeof( this.column_model[ col ].format ) == 'function' ) {
-                    value = this.column_model[ col ].format( data[ column_name ], data );
+                else if( format && typeof( this.column_model[ column ].format ) == 'function' ) {
+                    value = this.column_model[ column ].format( data[ column_name ], data );
                 }
                 else {
                     value = data[ column_name ];
@@ -330,14 +391,21 @@ export class Grid extends Object_Base {
              * Generate Columns
              *********************************************************************************/
             let user_classes = '';
-            if( typeof( this.column_model[ col ].classes ) != 'undefined' ) {
-                user_classes = this.column_model[ col ].classes;
+            if( typeof( this.column_model[ column ].classes ) != 'undefined' ) {
+                user_classes = this.column_model[ column ].classes;
             }
 
-            row_html += `<td class="${wsgrid_column}_${column_name} ${user_classes}"`
-                + `style="width:${this.column_widths[ col ]}px;`
-                + `text-align:${this.column_model[ col ].align};">`
-                + value + '</td>';
+            let display = '';
+            if( this.column_hidden[ column_name ] ) {
+                display = 'display: none';
+            }
+
+            let alignment = this.column_model[ column ].align;
+            row_html += `<td class="${wsgrid_column} ${wsgrid_cell} ${wsgrid_column}_${column_name}`
+                    + ` ${user_classes}"`
+                    + ` data-recordid='${record_id}' data-column='${column_name}' data-columnid="${column}"`
+                    + ` style="${display};width:${this.column_widths[ column ]}px;text-align:${alignment};">`
+                    + `${value}</td>`;
         }
         row_html += '</tr>';
 
@@ -350,20 +418,31 @@ export class Grid extends Object_Base {
         for( let column = 0; column < this.column_model.length; column++ ) {
             let column_name = this.column_model[ column ].name;
 
-            // Don't display hidden columns.
-            if( this.column_hidden[ column_name ] ) {
-                continue;
+            let sort_styling = '';
+            let decoration_side = 'left';
+            if( column_name == this.sort_column ) {
+                if( this.column_model[ column ].align == 'left' ) {
+                    decoration_side = 'right';
+                }
+                sort_styling = `<span class="${wsgrid_header}_sort" style="${decoration_side}:5px">`
+                             + `<i class="fa fa-sort-${this.sort_direction} fa-sm"></i></span>`;
             }
 
+            let resize_handle = `<span class="${wsgrid_header}_column_resize" data-column="${column_name}"></span>`;
             /*********************************************************************************
              * Generate Columns
              *********************************************************************************/
 
-            header_row += `<th class=" ${wsgrid_header}_column `
-                        + `${wsgrid_header}_column_${this.column_model[ column ].name}" `
-                        + `style="width:${this.column_widths[ column ]}px; `
-                        + `text-align:${this.column_model[ column ].align};">`
-                        + this.column_model[ column ].label + '</th>';
+            let display = '';
+            if( this.column_hidden[ column_name ] ) {
+                display = 'display: none;';
+            }
+
+            header_row += `<th class="${wsgrid_header}_column ${wsgrid_column}_${column_name}"`
+                        + ` data-column="${column_name}" data-columnid="${column}"`
+                        + ` style="width:${this.column_widths[ column ]}px;`
+                        + ` text-align:${this.column_model[ column ].align};${display};">`
+                        + `${this.column_model[ column ].label} ${sort_styling} ${resize_handle}</th>`;
         }
 
         return header_row;
@@ -444,7 +523,7 @@ export class Grid extends Object_Base {
             return '';
         }
 
-        return this._generate_row( this.totals_data, `${wsgrid_totals}`, '' );
+        return this._generate_row( '', this.totals_data, `${wsgrid_totals}`, `${wsgrid_totals}_column` );
     }
 
     /**
@@ -453,19 +532,36 @@ export class Grid extends Object_Base {
      */
     refresh() {
         //TODO: make a refresh button work
+        // $( `#${this.id} .${wsgrid_header}_row` ).empty();
+        // let headerData = this._generate_column_headers( '' );
+        // $( `#${this.id} .${wsgrid_header}_row` ).append( headerData );
+        //
         // $( `#${this.id} .${wsgrid_body}` ).empty();
         // let rowData = this.generateRows();
-        //
         // $( `#${this.id} .${wsgrid_body}` ).append( rowData );
         //
-        // $( `#${this.id} .${wsgrid_header}_row` ).empty();
-        // let headerData = this._generate_column_headers();
-        // $( `#${this.id} .${wsgrid_header}_row` ).append( headerData );
+        // // generate footer
+        // $( `#${this.id} .${wsgrid_footer}` ).empty();
+        // let footerData = this._generateTotalsRow();
+        // $( `#${this.id} .${wsgrid_footer}` ).append( footerData );
         //
         // let gridElement = document.getElementById( this.id );
         // let event = document.createEvent( 'HTMLEvents' );
         // event.initEvent( 'gridComplete', true, true );
         // gridElement.dispatchEvent( event );
+    }
+
+    /**
+     * Add a record to the data
+     * @param {Object} record  - a Javascript object containing keys matching the columns
+     */
+    append_row( record ) {
+
+        this.data.push( record );
+        psg.log( "data", this.data );
+        $( `#${this.id} .${wsgrid_body}` ).empty();
+        let rowData = this.generateRows();
+        $( `#${this.id} .${wsgrid_body}` ).append( rowData );
     }
 
     /**
@@ -538,12 +634,9 @@ export class Grid extends Object_Base {
      * @param  {Boolean} [state=true] - show the column?
      */
     show_column( column_name, state = true ) {
-        this.column_hidden[ column_name ] = ( state ? false : true );
+        this.column_hidden[ column_name ] = ( ! state );
 
-        //TODO: reset column widths
-
-        //TODO: make a refresh function
-        //this.refresh();
+        $( `.${wsgrid_column}_${column_name}` ).css( 'display', ( state ? '' : 'none' ) );
     }
 
     /**
@@ -553,10 +646,12 @@ export class Grid extends Object_Base {
         this.show_column( column_name, false );
     }
 
-    toggleColumn( column_name ) {
-        let newState = ( ! this.column_hidden[ column_name ] == true );
-        this.column_hidden[ column_name ] = newState;
-        this.refresh();
+    /**
+     * Wrapper for showColumn( column_name, ! state );
+     */
+    toggle_column( column_name ) {
+        let newState = ! ( this.column_hidden[ column_name ] === false );
+        this.show_column( column_name, newState );
     }
 
     /***********************************************************************************
@@ -576,14 +671,34 @@ export class Grid extends Object_Base {
     click( event ) {
         let classList = event.target.classList;
         let column_name = '';
+        let isHeader = false;
+        let isTotals = false;
         let row = 0;
+
+        if( this.drag_started ) {
+            return;
+        }
 
         // get the column name
         classList.forEach( ( c ) => {
             if( c.startsWith( `${wsgrid_column}_` ) ) {
                 column_name = c.replace( `${wsgrid_column}_`, '' );
             }
+            else if( c == `${wsgrid_header}_column` ) {
+                isHeader = true;
+            }
+            else if( c == `${wsgrid_totals}_column` ) {
+                isTotals = true;
+            }
         } );
+
+        if( isHeader ) {
+            this.header_click( event );
+            return;
+        }
+        else if( isTotals ) {
+            return;
+        }
 
         // Set the selected cell.
         let selected = document.getElementsByClassName( 'selected' );
@@ -595,12 +710,7 @@ export class Grid extends Object_Base {
         classList.add( 'selected' );
 
         // get the row
-        let row_element = event.target.closest( `.${wsgrid_row}` );
-        row_element.classList.forEach( ( c ) => {
-            if( c.startsWith( `${wsgrid_row}_id_` ) ) {
-                row = c.replace( `${wsgrid_row}_id_`, '' );
-            }
-        } );
+        row = event.target.dataset.recordid;
 
         // only call the user defined function if it exists.
         if( typeof( this.events.click ) == 'function' ) {
@@ -618,23 +728,33 @@ export class Grid extends Object_Base {
      */
     dblclick( event ) {
         let classList = event.target.classList;
-        let column_name = '';
-        let row = 0;
+        let row = Number( event.target.dataset.recordid );
+        let column_name = event.target.dataset.column;
+
+        let isHeader = false;
+        let isTotals = false;
+
+        if( self.drag_started ) {
+            return;
+        }
 
         // get the column name
         classList.forEach( ( c ) => {
-            if( c.startsWith( wsgrid_column ) ) {
-                column_name = c.replace( `${wsgrid_column}_`, '' );
+            if( c == `${wsgrid_header}_column` ) {
+                isHeader = true;
+            }
+            else if( c == `${wsgrid_totals}_column` ) {
+                isTotals = true;
             }
         } );
 
-        // get the row
-        let row_element = event.target.closest( `.${wsgrid_row}` );
-        row_element.classList.forEach( ( c ) => {
-            if( c.startsWith( `${wsgrid_row}_id_` ) ) {
-                row = c.replace( `${wsgrid_row}_id_`, '' );
-            }
-        } );
+        if( isHeader ) {
+            this.header_click( event );
+            return;
+        }
+        else if( isTotals ) {
+            return;
+        }
 
         // only call the user defined function if it exists.
         if( typeof( this.events.dblclick ) == 'function' ) {
@@ -651,6 +771,34 @@ export class Grid extends Object_Base {
                     this._inline_editor( event.target, i, this.column_model[ i ] );
                 }
             }
+        }
+    }
+
+    mousedown( e ) {
+        console.log( "mouse down", e );
+        let classList = e.target.classList;
+        if( classList.contains( `${wsgrid_header}_column_resize` ) ) {
+            this.drag_started = true;
+            this._column_resize_start( e );
+        }
+    }
+
+    mousemove( e ) {
+        if( e.buttons == 1 && this.drag_started ) {
+            this._column_resize( e );
+        }
+    }
+    mouseup( e ) {
+        if( this.drag_started ) {
+            this._column_resize_end( e );
+            this.drag_started = false;
+        }
+    }
+
+    grid_complete( e ) {
+
+        if( typeof( self.methods.grid_complete ) == 'function' ) {
+            self.methods.grid_complete( self.data );
         }
     }
 
@@ -688,15 +836,7 @@ export class Grid extends Object_Base {
      * @param  {Event} event   - DOM Event.
      */
     header_click( event ) {
-        let classList = event.target.classList;
-        let column_name = '';
-
-        // get the column name
-        classList.forEach( ( c ) => {
-            if( c.startsWith( `${wsgrid_header}_column_` ) ) {
-                column_name = c.replace( `${wsgrid_header}_column_`, '' );
-            }
-        } );
+        let column_name = event.target.dataset.column;
 
         // only call the user defined function if it exists.
         if( typeof( this.events.header_click ) == 'function' ) {
@@ -766,12 +906,16 @@ export class Grid extends Object_Base {
             case 'string':
                 return String( value ).toLowerCase();
             case 'number':
+                value = psg.number.fromMoney( value );
                 return Number( value );
-            //TODO: include moment.js
             // case 'date':
-            //     return Number( moment( value ).format( 'YYYYMMDD' ) );
+            //     let date_format = 'YYYY-MM-DD';
+            //     if( value.indexOf( '/' ) != -1 ) {
+            //         date_format = 'M/D/YYYY';
+            //     }
+            //     return Number( moment( value, date_format ).format( 'YYYYMMDD' ) );
             // case 'datetime':
-            //     return Number( moment( value ).format( 'YYYYMMDDHHmmss' ) );
+            //     return Number( moment( value, 'YYYY-MM-DD HH:mm:ss' ).format( 'YYYYMMDDHHmmss' ) );
             default:
                 return String( value );
         }
@@ -786,13 +930,13 @@ export class Grid extends Object_Base {
      */
     _inline_editor( cell, index, properties ) {
         let editor = '';
-        let cell_value = cell.innerHTML;
+        let cell_value = this.data[ cell.dataset.recordid ][ properties.name ];
 
         // Only open an editor if one isn't already open.
         if( cell.firstChild == '#text' ) {
             return cell.innerHTML;
         }
-
+        console.log( cell_value, cell );
         let value = convert_html_entities( cell_value );
 
         if( properties.type == 'number' ) {
@@ -812,7 +956,7 @@ export class Grid extends Object_Base {
         }
 
         editor = `<input type="${properties.type}" class="${wsgrid_editor}_main_editor"`
-                + `style="width:${this.column_widths[ index ]}px;text-align:${properties.align}" `
+                + `style="width:calc( 100% - 10px );text-align:${properties.align}" `
                 + `value=\"${value}\" ${checked}>`;
 
         cell.dataset.oldvalue = cell.innerHTML;
@@ -827,9 +971,14 @@ export class Grid extends Object_Base {
         } );
 
         // Force the blur event to save and close the editor.
-        cell.firstChild.addEventListener( 'focusout', ( event ) => {
+        cell.firstChild.addEventListener( 'blur', ( event ) => {
             let e = new Event( 'click' );
             document.dispatchEvent( e );
+            console.log( "blur", event, event.relatedTarget );
+            // FIXME: a hack to see if the tab key was pressed.
+            if( event.relatedTarget !== null ) {
+                this._open_next_editor( event, cell );
+            }
         } );
 
         document.addEventListener( 'click', function click_close_editor( event ) {
@@ -867,7 +1016,7 @@ export class Grid extends Object_Base {
         }
 
         //TODO: is there a better way to get the recordId instead of hard coding it?
-        let row_id = cell.closest( `.${wsgrid_row}` ).dataset.recordid;
+        let row_id = cell.dataset.recordid;
         let new_value = cell.firstChild.value;
 
         if( cell.firstChild.type == 'checkbox' ) {
@@ -905,6 +1054,38 @@ export class Grid extends Object_Base {
         cell.dispatchEvent( e );
 
         return true;
+    }
+
+
+    /**
+     * Find the next editor to open and open it.
+     * @param  {Event} event   - DOM event
+     * @param  {Element} cell   - HTML Element
+     */
+    _open_next_editor( event, cell ) {
+        let current_record = cell.dataset.recordid;
+        let column_name = cell.dataset.column;
+        let column_id = cell.dataset.columnid;
+
+        //TODO: refactor to handle shift + tab ...
+        let next_id = Number( column_id ) + 1;
+        for( let i = next_id; i <= this.column_model.length; i++ ) {
+            //if we've checked all the fields in this record move on to the next record...
+            if( i == this.column_model.length ) {
+                current_record++;
+                i = 0;
+            }
+
+            if( ! this.column_hidden[ column_name ] && this.column_model[ i ].editable ) {
+                let current_column = this.column_model[ i ].name;
+                console.log( `.${wsgrid_row}_${current_record} td.${wsgrid_column}_${current_column}` );
+                let e = new Event( 'dblclick', { bubbles: true } );
+                let target = this.grid.querySelector( `.${wsgrid_row}_${current_record} td.${wsgrid_column}_${current_column}` );
+                target.dispatchEvent( e );
+
+                return;
+            }
+        }
     }
 
     _get_number_from_column_name( column_name ) {
@@ -1028,6 +1209,11 @@ export class Grid extends Object_Base {
     }
 
     format_currency( cellValue ) {
+        // Check for a user defined currency function first.
+        if( typeof( this.currency ) == 'function' ) {
+            return this.currency( cellValue );
+        }
+
         let value = this.from_currency( cellValue );
         return this.to_currency( value );
     }
@@ -1058,11 +1244,11 @@ export class Grid extends Object_Base {
 
     /**
      * Convert a number to a dollar amount string.
+     * TODO: add thousands seperator
      **/
     to_currency( amount ) {
-        amount = numberNs.with_precision( amount, 2, true );
+        amount = this.with_precision( amount, 2, true );
 
-        // Perl module Data::Money passes the value as a number.
         if( typeof( amount ) == 'number' ) {
             let isNegative = false;
 
@@ -1071,11 +1257,9 @@ export class Grid extends Object_Base {
                 isNegative = true;
             }
             amount = ( isNegative == true ? `($${amount})` : `$${amount}` );
-
-        // Perl module Math::Currency passes the value as a string.
         }
         else if( typeof( amount ) == 'string' ) {
-            amount = numberNs.with_precision( amount, 2, true );
+            amount = this.with_precision( amount, 2, true );
             let floatAmount = Number( amount );
 
             let isNegative = false;
