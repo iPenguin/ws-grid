@@ -4,22 +4,40 @@
  * id:              - id of DOM element that will contain this grid.
  * height:          - height of grid. Set the height to an empty string to allow the grid to be the height of the data.
  * width:           - width of grid.
+ * overflow         - Allow the columns to overflow the width of the grid. (default: false)
  * column_defaults: - Default values for all columns.
  * currency         - override function for how to format numbers as currency.
  * column_model:    - a list of options that will define how each column displays it's data.
- *    name              - String   - name of the column in the data.
- *    label             - String   - Label to put in the column header.
- *    width             - Number   - minimum width of the column.
- *    align             - String   - text alignment, left, right, center.
- *    fixed             - Boolean  - is the width of this column fixed?
- *    hidden            - Boolean  - is the field hidden?
- *    sort              - String   - what method to use when sorting this column, string, number, date, currency, custom,
- *    sort_function     - Function - when sort is set to custom this contains the function it will use to do sorting.
- *                                   the return value of this function should follow standard JavaScript sort functions.
+ *     name            - name of data field passed into grid.
+ *     label           - label to show at the top of the column.
+ *     visible         - show or don't show a given column.
+ *     width           - how wide to make the column, (number only) but this is calculated in pixels.
+ *     align           - a string: left, right, or center.
+ *     fixed           - fixed width true/false
+ *     type            - This helps with sorting. Valid values are: text, string, number, date, datetime, time
+ *                        NOTE: you can also assign a function to type and it will run the custom function on each
+ *                        value to transform the data for sorting.
+ *     editable        - Can this column be edited?
+ *     frozen          - Is this column locked in place? left or right?
+ *     classes         - Custom css classes to apply to the column
+ *     format          - string or function on how to format the data, a function should return a string.
+ *
  * events:        - an object containing functions as elements.
- *    click( row, column_name, row_data )
- *    dblclick( row, column_name, row_data )
- *    header_click( column_name )
+ *     click( row, column, rowData )         - Click event for a given cell.
+ *     dblclick( row, column_name, rowData ) - Double click event for cells, the grid passes in row,
+ *                                                column name, and row data.
+ *     load_complete( data )                 - After the data has been given to the grid,
+ *                                                but before the ui is generated.
+ *     data_loaded( data )                   - After the data is loaded before the grid is generated.
+ *     data_changed( change )                - Fires when the internal data for the grid is changed.
+ *                                                change contains row_id, column_name, new_value, old_value,
+ *     grid_complete( data )                 - After the data has been given to the grid
+ *                                                and after the ui has been generated.
+ *
+ *     sort_row                              - After the user has manually changed the row order.
+ *     after_edit                            - After the user has edited the data, and the editor has closed.
+ *     after_save                            - After the editor has closed and the data has been saved.
+ *
  * filters:
  *
  * connection:
@@ -38,29 +56,53 @@ import { CreateConnection } from './connection.js';
 import { Socket } from './socket.js';
 import { Ajax } from './ajax.js';
 
-const wsgrid_prefix = 'wsgrid_';
-const wsgrid_header = `${wsgrid_prefix}_header`;
-const wsgrid_table  = `${wsgrid_prefix}_table`;
-const wsgrid_footer = `${wsgrid_prefix}_footer`;
-const wsgrid_body   = `${wsgrid_prefix}_body`;
-const wsgrid_row    = `${wsgrid_prefix}_row`;
-const wsgrid_column = `${wsgrid_prefix}_column`;
-const wsgrid_cell   = `${wsgrid_prefix}_cell`;
-const wsgrid_editor = `${wsgrid_prefix}_editor`;
-const wsgrid_totals = `${wsgrid_prefix}_totals`;
-const wsgrid_data   = `${wsgrid_prefix}_data`;
+const wsgrid_prefix      = 'wsgrid_';
+const wsgrid_table       = `${wsgrid_prefix}_table`;
+const wsgrid_header      = `${wsgrid_prefix}_header`;
+const wsgrid_body        = `${wsgrid_prefix}_body`;
+const wsgrid_footer      = `${wsgrid_prefix}_footer`;
+const wsgrid_row         = `${wsgrid_prefix}_row`;
+const wsgrid_column      = `${wsgrid_prefix}_column`;
+const wsgrid_cell        = `${wsgrid_prefix}_cell`;
+const wsgrid_editor      = `${wsgrid_prefix}_editor`;
+const wsgrid_totals      = `${wsgrid_prefix}_totals`;
+const wsgrid_multiselect = `${wsgrid_prefix}_multiselect`;
+const wsgrid_data        = `${wsgrid_prefix}_data`;
 
 let column_defaults = {
-    name:     '',
-    label:    '',
-    width:    100,
-    align:    'left',
-    fixed:    true,
-    hidden:   false,
-    sort:     'text',
-    editable: false,
-    format:   ( value ) => {
+    name:         '',
+    label:        '',
+    width:        100,
+    align:        'left',
+    fixed:        true,
+    visible:      true,
+    type:         'text',
+    editable:     false,
+    frozen_left:  false,
+    frozen_right: false,
+    classes:      '',
+    format:       ( value ) => {
         return value;
+    }
+};
+
+let grid_defaults = {
+    height:          200,
+    width:           200,
+    events:          {},
+    filters:         [],
+    overflow:        false,
+    sort_column:     '',
+    sort_direction:  'asc',
+    column_reorder:  false,
+    column_resize:   true,
+    column_sort:     true,
+    row_reorder:     false,
+    multi_select:    false,
+    connection:     {
+        type:    'Socket',
+        url:     '',
+        options: {},
     }
 };
 
@@ -86,56 +128,49 @@ export class Grid extends Object_Base {
         super( options );
 
         this._required_options( options, [
-            'id', 'column_model', 'height', 'width',
+            'id', 'column_model',
         ] );
-
-        let grid_defaults = {
-            height:          200,
-            width:           200,
-            events:          {},
-            filters:         [],
-            overflow:        false,
-            connection: {
-                type:    'Socket',
-                url:     '',
-                options: {},
-            }
-        };
 
         //extend the default options with the user options
         let all_options = Object.assign( {}, grid_defaults, options );
-
         this._setup_object( all_options );
+
+        this.drag = {
+            started: false,
+            type:    undefined,
+        };
 
         this.connection = CreateConnection.create_connection( this.connection );
         this.grid_container = document.getElementById( this.id );
 
         this._parse_column_info();
+        this._create_lookup_tables( all_options.column_model );
+        this._calculate_columns();
+
         this.grid = this.generate_grid();
         this.is_filtered = false;
 
-        this.drag_started = false;
+        this.drag = {
+            started: false,
+            type:    undefined,
+        };
+
+        this.event_trigger = undefined;
 
         this.sort_column = '';
         this.sort_direction = 'asc';
 
-        let grid_body = this.grid.querySelector( `.${wsgrid_body}` );
-        let grid_header = this.grid.querySelector( `.${wsgrid_header}` );
-
         // conect events.
-        grid_body.addEventListener( 'click', ( event ) => { this.click.call( this, event ); } );
-        grid_body.addEventListener( 'dblclick', ( event ) => { this.dblclick.call( this, event ); } );
-        grid_body.addEventListener( 'load_complete', ( event ) => { this.load_complete.call( this, event ); } );
-        grid_header.addEventListener( 'mousedown', ( event ) => { this.mousedown.call( this, event ); } );
-        grid_header.addEventListener( 'mousemove', ( event ) => { this.mousemove.call( this, event ); } );
-        grid_header.addEventListener( 'mouseup', ( event ) => { this.mouseup.call( this, event ); } );
-        grid_body.addEventListener( `${wsgrid_data}.cell_change`, ( event ) => { this.data_changed.call( this, event ); } );
-
+        this.grid.addEventListener( 'click', ( event ) => { this.click.call( this, event ); } );
+        this.grid.addEventListener( 'dblclick', ( event ) => { this.dblclick.call( this, event ); } );
+        this.grid.addEventListener( 'load_complete', ( event ) => { this.load_complete.call( this, event ); } );
+        this.grid.addEventListener( 'mousedown', ( event ) => { this.mousedown.call( this, event ); } );
+        this.grid.addEventListener( 'mousemove', ( event ) => { this.mousemove.call( this, event ); } );
+        this.grid.addEventListener( 'mouseup', ( event ) => { this.mouseup.call( this, event ); } );
+        this.grid.addEventListener( `${wsgrid_data}.cell_changed`, ( event ) => { this.data_changed.call( this, event ); } );
+        window.addEventListener( 'resize', ( event ) => { this.resize.call( this, event ); } );
         // Needed for grid resizing.
         this.grid.style.position = 'relative';
-
-        // let grid_header = this.grid.querySelector( `.${wsgrid_header}_row` );
-        // grid_header.addEventListener( 'click', ( event ) => { this.header_click.call( this, event ); } );
     }
 
     /**
@@ -156,30 +191,8 @@ export class Grid extends Object_Base {
             this.column_model[ i ] = Object.assign( {}, column_defaults, this.column_model[ i ] );
         }
 
-        this.column_types = {};
-        this.column_hidden = {};
-        this.column_labels = {};
-        this.column_widths_override = {};
-
         this.data = [];
         this.totals_data = undefined;
-
-        // loop through the columns and gather information about widths...
-        for( let i = 0; i < count; i++ ) {
-            // fill in any missing default values.
-            this.column_model[ i ] = Object.assign( {}, column_defaults, this.column_model[ i ] );
-
-            // Create a quick lookup table for column type/format, so we know how to sort data
-            this.column_types[ this.column_model[ i ].name ] = this.column_model[ i ].type;
-
-            // Quick lookup and session storage for the column's state.
-            this.column_hidden[ this.column_model[ i ].name ] = this.column_model[ i ].hidden;
-
-            // Quick lookup for column labels from column names;
-            this.column_labels[ this.column_model[ i ].name ] = this.column_model[ i ].label;
-        }
-
-        this._calculate_columns();
 
         // Make sure the element the user wants is actually in the DOM, if not throw an error the user can figure out.
         let gridElement = document.getElementById( this.id );
@@ -207,57 +220,168 @@ export class Grid extends Object_Base {
     _column_resize( e ) {
         e.preventDefault();
 
-        if( this.drag_started ) {
-            this.seperator.dataset.width_delta = ( e.pageX - this.seperator.start_drag );
-            this.seperator.style.left = `${e.pageX}px`;
-        }
+        this.seperator.dataset.width_delta = ( e.pageX - this.seperator.start_drag );
+        this.seperator.style.left = `${e.pageX}px`;
     }
     _column_resize_end( e ) {
         e.preventDefault();
-
         let column_name = this.seperator.dataset.column;
-        let id = this._get_number_from_column_name( column_name );
 
-        let width = Number( this.column_widths[ id ] ) + Number( this.seperator.dataset.width_delta );
+        let width = Number( this.columns.width[ column_name ] ) + Number( this.seperator.dataset.width_delta );
         this.set_column_width( column_name, width );
 
-        // reset delta so we don't keep changning the column width,  by just clicking on it.
+        // reset delta so we don't keep changning the column width, by just clicking on it.
         this.seperator.dataset.width_delta = 0;
         this.seperator.parentElement.removeChild( this.seperator );
     }
 
-    _calculate_columns() {
+    _column_move_start( e ) {
+        e.preventDefault();
+
+        if( typeof( this.seperator ) == 'undefined' ) {
+            this.seperator = document.createElement( 'div' );
+            this.seperator.id = `${wsgrid_header}_column_resize_visual`;
+        }
+
+        this.seperator.dataset.column = e.target.dataset.column;
+        let rect = this.grid.getBoundingClientRect();
+        this.seperator.style.top = `${rect.top}px`;
+        this.seperator.style.height = `${rect.height}px`;
+        this.seperator.style.left = `${e.pageX}px`;
+        this.seperator.start_drag = e.pageX;
+        this.grid.append( this.seperator );
+        this.grid.style.cursor = 'move';
+    }
+    _column_move( e ) {
+        e.preventDefault();
+
+        let header_row = this.grid.querySelector( 'thead tr' );
+        let children = header_row.children;
+
+        for( let i = 0; i < children.length; i++ ) {
+            let rect = children[ i ].getBoundingClientRect();
+            let split = rect.left + ( rect.width * ( 2 / 3 ) );
+
+            if( e.pageX > rect.left && e.pageX <= rect.right ) {
+                if( e.pageX < split ) {
+                    this.seperator.style.left = `${rect.left}px`;
+                    continue;
+                }
+                else {
+                    this.seperator.style.left = `${rect.right}px`;
+                    continue;
+                }
+            }
+        }
+    }
+    _column_move_end( e ) {
+        e.preventDefault();
+
+        let column_name = this.seperator.dataset.column;
+        let next_column = '';
+
+        let header_row = this.grid.querySelector( 'thead tr' );
+        let children = header_row.children;
+
+        for( let i = 0; i < children.length; i++ ) {
+            let rect = children[ i ].getBoundingClientRect();
+            let split = rect.left + ( rect.width * ( 2 / 3 ) );
+
+            if( e.pageX > rect.left && e.pageX <= rect.right ) {
+                if( e.pageX < split ) {
+                    this.seperator.style.left = `${rect.left}px`;
+                    next_column = children[ i ];
+                    continue;
+                }
+                else {
+                    this.seperator.style.left = `${rect.right}px`;
+                    next_column = children[ i + 1 ];
+                    continue;
+                }
+            }
+        }
+
+        let next_column_name = undefined;
+
+        if( typeof( next_column ) !== 'undefined' ) {
+            next_column_name = next_column.dataset.column;
+        }
+
+        this.set_column_position( column_name, next_column_name );
+
+        // reset delta so we don't keep changning the column width, by just clicking on it.
+        this.seperator.dataset.width_delta = 0;
+        this.seperator.parentElement.removeChild( this.seperator );
+        this.grid.style.cursor = '';
+    }
+
+    /**
+     * turn the column model on it's side so we can do property lookups using the column name.
+     * @param  {Object} column_model        - Column model used to create this grid.
+     */
+    _create_lookup_tables( column_model ) {
+        let colCount = column_model.length;
+
+        this.columns = {};
+        this.column_order = [];
+
+        // loop through the columns and create a set of lookup tables for all properties.
+        for( let i = 0; i < colCount; i++ ) {
+            // fill in any missing default values.
+            this.column_model[ i ] = Object.assign( {}, column_defaults, column_model[ i ] );
+
+            let keys = Object.keys( column_defaults );
+            let column_name = this.column_model[ i ].name;
+
+            // Keep track of the column order.
+            this.column_order[ i ] = column_name;
+
+            // keep track of all properties by column name.
+            for( let key of keys ) {
+                if( typeof( this.columns[ key ] ) == 'undefined' ) {
+                    this.columns[ key ] = {};
+                }
+
+                this.columns[ key ][ column_name ] = this.column_model[ i ][ key ];
+            }
+        }
+
+        console.log( "columns", this.columns );
+    }
+
+    _calculate_columns( user_set = false ) {
         let count = this.column_model.length;
 
-        let grid_width = this.width; //this.grid.offsetWidth;
+        let grid_width = document.getElementById( this.id ).offsetWidth;
         let fixed_width = 0;
         let flex_width = 0;
 
-        // loop through the columns and gather information about widths...
+        // loop through the columns and gather info
         for( let i = 0; i < count; i++ ) {
-            let isFixed = this.column_model[ i ].fixed;
+            let column_name = this.column_order[ i ];
 
-            fixed_width += ( isFixed ? this.column_model[ i ].width : 0 );
-            flex_width += ( isFixed ? 0 : this.column_model[ i ].width );
+            let isFixed = this.columns.fixed[ column_name ];
+
+            fixed_width += ( isFixed ? this.columns.width[ column_name ] : 0 );
+            flex_width += ( isFixed ? 0 : this.columns.width[ column_name ] );
         }
 
         // calculate the widths of flexable columns.
         let remaining_width = grid_width - fixed_width;
 
-        let column_widths = this.column_model.map( ( x ) => {
-            if( typeof( this.column_widths_override[ x.name ] ) !== 'undefined' ) {
-                return this.column_widths_override[ x.name ];
+        for( let i = 0; i < count; i++ ) {
+            let column_name = this.column_order[ i ];
+
+            let new_width = this.columns.width[ column_name ];
+
+            if( ! user_set && ! this.columns.fixed[ column_name ] ) {
+
+                let percent = new_width / flex_width;
+                new_width = Math.floor( remaining_width * percent );
             }
 
-            if( x.fixed ) {
-                return x.width;
-            }
-
-            let percent = x.width / flex_width;
-            return Math.floor( remaining_width * percent );
-        } );
-
-        this.column_widths = column_widths;
+            this.columns.width[ column_name ] = new_width;
+        }
 
         if( this.overflow ) {
             this.min_column_width = fixed_width + flex_width;
@@ -274,9 +398,9 @@ export class Grid extends Object_Base {
             width = 2;
         }
 
-        this.column_widths_override[ column_name ] = width;
-        this._calculate_columns();
-        //this.refresh();
+        this.columns.width[ column_name ] = width;
+        this._calculate_columns( true );
+        this.refresh();
     }
 
     /**
@@ -308,16 +432,13 @@ export class Grid extends Object_Base {
             this.data = data;
         }
 
-        this._generate_rows();
+        this.refresh();
     }
 
     /**
      * Generate the table rows using the internal data array
      */
     _generate_rows() {
-        // this tables body.
-        let table_body = document.querySelector( `table.${wsgrid_table}_${this.id} .${wsgrid_body}` );
-        table_body.innerHTML = '';
 
         if( typeof( this.events.data_loaded ) == 'function' ) {
             this.events.data_loaded( this.data );
@@ -334,7 +455,7 @@ export class Grid extends Object_Base {
                 continue;
             }
 
-            let classes = `${wsgrid_row} ${wsgrid_row}_${i}`;
+            let classes = '';
 
             if( zebra % 2 == 0 ) {
                 classes += ` ${wsgrid_row}_even `;
@@ -344,43 +465,46 @@ export class Grid extends Object_Base {
             }
             zebra++;
 
-            row_html += this._generate_row( i, this.data[ i ], classes );
+            row_html += this._generate_row( i, this.data[ i ], '', classes );
         }
 
-        row_html += this._generate_totals_row();
-
-        table_body.innerHTML = row_html;
-
+        //TODO: move outside of this function...
         let event = document.createEvent( 'HTMLEvents' );
         event.initEvent( 'load_complete', true, true );
         this.grid.dispatchEvent( event );
+
+        return row_html;
     }
 
     /**
      * Generate the html for the given row of data.
      */
-    _generate_row( record_id, data, row_classes = '', column_classes = '', format = true ) {
+    _generate_row( record_id, data, row_classes = '', column_classes = '' ) {
         /*********************************************************************************
          * Generate Rows
          *********************************************************************************/
-        let row_html = `<tr class="${row_classes}"`
+        let row_html = `<tr class="${wsgrid_row} ${wsgrid_row}_${record_id} ${row_classes}"`
                     + ( record_id == '' ? '' : `data-recordid="${record_id}"` )
-                    + `>`;
+                    + ` style="min-width:${this.min_column_width}px">`;
 
-        let col_count = this.column_model.length;
-        for( let column = 0; column < col_count; column++ ) {
-            let column_name = this.column_model[ column ].name;
-            let isHidden = this.column_hidden[ column_name ];
+        if( this.multi_select ) {
+            row_html += `<td class="${wsgrid_multiselect}_cell ${column_classes}" style="position:sticky;left:0;z-index:5;">`
+                      + this._generate_multiselect( record_id ) + '</td>';
+        }
+
+        for( let column = 0; column < this.column_order.length; column++ ) {
+            let column_name = this.column_order[ column ];
 
             let value = '';
+
             // if there is data to display figure out how to display it.
             if( typeof( data[ column_name ] ) !== 'undefined' ) {
-                if( format && typeof( this.column_model[ column ].format ) == 'string' ) {
-                    let formatType = this.column_model[ column ].format;
+                if( typeof( this.columns.format[ column_name ] ) == 'string' ) {
+                    let formatType = this.columns.format[ column_name ];
                     value = this[ `format_${formatType.toLowerCase()}` ]( data[ column_name ] );
                 }
-                else if( format && typeof( this.column_model[ column ].format ) == 'function' ) {
-                    value = this.column_model[ column ].format( data[ column_name ], data );
+                else if( typeof( this.columns.format[ column_name ] ) == 'function' ) {
+                    value = this.columns.format[ column_name ]( data[ column_name ], data );
                 }
                 else {
                     value = data[ column_name ];
@@ -391,20 +515,22 @@ export class Grid extends Object_Base {
              * Generate Columns
              *********************************************************************************/
             let user_classes = '';
-            if( typeof( this.column_model[ column ].classes ) != 'undefined' ) {
-                user_classes = this.column_model[ column ].classes;
+            if( typeof( this.columns.classes[ column_name ] ) != 'undefined' ) {
+                user_classes = this.columns.classes[ column_name ];
             }
 
             let display = '';
-            if( this.column_hidden[ column_name ] ) {
-                display = 'display: none';
+            if( ! this.columns.visible[ column_name ] ) {
+                display = 'display: none;';
             }
 
-            let alignment = this.column_model[ column ].align;
-            row_html += `<td class="${wsgrid_column} ${wsgrid_cell} ${wsgrid_column}_${column_name}`
+            let frozen_style = this._generate_frozen_styles( column_name );
+
+            let alignment = this.columns.align[ column_name ];
+            row_html += `<td class="${wsgrid_column} ${wsgrid_cell} ${column_classes} ${wsgrid_column}_${column_name}`
                     + ` ${user_classes}"`
                     + ` data-recordid='${record_id}' data-column='${column_name}' data-columnid="${column}"`
-                    + ` style="${display};width:${this.column_widths[ column ]}px;text-align:${alignment};">`
+                    + ` style="${display} ${frozen_style} width:${this.columns.width[ column_name ]}px;text-align:${alignment};">`
                     + `${value}</td>`;
         }
         row_html += '</tr>';
@@ -412,37 +538,81 @@ export class Grid extends Object_Base {
         return row_html;
     }
 
+    /**
+     * Move the column column_name before next_column.
+     * If no column name is given or it is undefined places the column at the end of the grid.
+     *
+     * @param {String} column_name    - Column to move
+     * @param {String} next_element   - Column to move in front of
+     */
+    set_column_position( column_name, next_element ) {
+        this.column_order.splice( this.column_order.indexOf( column_name ), 1 );
+        this.column_order.splice( this.column_order.indexOf( next_element ), 0, column_name );
+        this.refresh();
+    }
+
+    _multiselect_header_checked( state ) {
+        let checkboxes = this.grid.querySelectorAll( `input[class^="${wsgrid_multiselect}_id"]` );
+
+        for( let i = 0; i < checkboxes.length; i++ ) {
+            checkboxes[ i ].checked = state;
+            checkboxes[ i ].parentElement.classList.toggle( `${wsgrid_row}_selected`, state );
+        }
+    }
+
     _generate_column_headers( columnClasses ) {
         let header_row = '';
 
-        for( let column = 0; column < this.column_model.length; column++ ) {
-            let column_name = this.column_model[ column ].name;
+        if( this.multi_select ) {
+            header_row += `<th class="${wsgrid_multiselect}_cell"  style="position:sticky;left:0;z-index:5;">`
+                        + this._generate_multiselect( 'header' ) + '</th>';
+        }
+
+        for( let column = 0; column < this.column_order.length; column++ ) {
+            let column_name = this.column_order[ column ];
 
             let sort_styling = '';
             let decoration_side = 'left';
             if( column_name == this.sort_column ) {
-                if( this.column_model[ column ].align == 'left' ) {
+                if( this.columns.align[ column_name ] == 'left' ) {
                     decoration_side = 'right';
                 }
-                sort_styling = `<span class="${wsgrid_header}_sort" style="${decoration_side}:5px">`
-                             + `<i class="fa fa-sort-${this.sort_direction} fa-sm"></i></span>`;
+                sort_styling = `<span class="${wsgrid_header}_sort" style="${decoration_side}:5px"><i class="fa fa-sort-${this.sort_direction} fa-sm"></i></span>`;
             }
 
-            let resize_handle = `<span class="${wsgrid_header}_column_resize" data-column="${column_name}"></span>`;
+            let move_handle = '';
+            let resize_handle = '';
+
+            // if this isn't the first column in a multi_select then...
+            if( this.multi_select && column == 0 ) {
+                move_handle = '';
+                resize_handle = '';
+            }
+            else {
+                if( this.column_reorder ) {
+                    move_handle = `<span class='${wsgrid_header}_column_move' data-column='${column_name}'></span>`;
+                }
+
+                if( this.column_resize ) {
+                    resize_handle = `<span class="${wsgrid_header}_column_resize" data-column="${column_name}"></span>`;
+                }
+            }
             /*********************************************************************************
              * Generate Columns
              *********************************************************************************/
 
             let display = '';
-            if( this.column_hidden[ column_name ] ) {
+            if( ! this.columns.visible[ column_name ] ) {
                 display = 'display: none;';
             }
 
+            let frozen_style = this._generate_frozen_styles( column_name );
+
             header_row += `<th class="${wsgrid_header}_column ${wsgrid_column}_${column_name}"`
                         + ` data-column="${column_name}" data-columnid="${column}"`
-                        + ` style="width:${this.column_widths[ column ]}px;`
-                        + ` text-align:${this.column_model[ column ].align};${display};">`
-                        + `${this.column_model[ column ].label} ${sort_styling} ${resize_handle}</th>`;
+                        + ` style="width:${this.columns.width[ column_name ]}px;`
+                        + ` text-align:${this.columns.align[ column_name ]};${display} ${frozen_style}">`
+                        + `${move_handle} ${this.columns.label[ column_name ]} ${sort_styling} ${resize_handle}</th>`;
         }
 
         return header_row;
@@ -493,6 +663,91 @@ export class Grid extends Object_Base {
         return false;
     }
 
+    _generate_frozen_styles( column_name ) {
+        let frozen_style = '';
+        let fixed_position = 0;
+        let frozen_count = 0;
+        let col_count = 1;
+
+        if( this.columns.frozen_left[ column_name ] ) {
+
+            let keys = Object.keys( this.columns.frozen_left );
+            for( let key of keys ) {
+                if( this.columns.frozen_left[ key ] ) {
+                    frozen_count++;
+                }
+            }
+
+            if( this.multi_select ) {
+                fixed_position += 20 + 7;
+            }
+
+            for( let i = 0; i < this.column_order.length; i++ ) {
+
+                let current_column = this.column_order[ i ];
+                if( current_column == column_name ) {
+                    break;
+                }
+                else if( this.columns.visible[ current_column ] ) {
+                    col_count++;
+                    fixed_position += this.columns.width[ current_column ] + 6 + i;
+                }
+            }
+
+            let border = '';
+            if( col_count == frozen_count ) {
+                border = 'border-right: 3px solid black;';
+            }
+
+            frozen_style = `position:sticky;left:${fixed_position}px;z-index:5;${border}`;
+
+        }
+        else if( this.columns.frozen_right[ column_name ] ) {
+
+            let keys = Object.keys( this.columns.frozen_right );
+            for( let key of keys ) {
+                if( this.columns.frozen_right[ key ] ) {
+                    frozen_count++;
+                }
+            }
+
+            for( let i = this.column_order.length; i >= 0; i-- ) {
+                let current_column = this.column_order[ i ];
+                if( current_column == column_name ) {
+                    break;
+                }
+                else if( this.columns.visible[ current_column ] ) {
+                    col_count++;
+                    let etc = this.column_order.length - i;
+                    fixed_position += this.columns.width[ current_column ] + 5 + etc;
+                }
+            }
+
+            let border = '';
+            if( col_count == frozen_count ) {
+                border = 'border-left: 3px solid black;';
+            }
+
+            frozen_style = `position:sticky;right:${fixed_position}px;z-index:5;${border}`;
+        }
+
+        return frozen_style;
+    }
+
+    _generate_multiselect( row_id ) {
+        let class_name = row_id;
+
+        if( row_id === '' ) {
+            return '';
+        }
+        // if the row_id is a number...
+        else if( row_id !== 'header' ) {
+            class_name = `id_${row_id}`;
+        }
+
+        return `<input class="${wsgrid_multiselect}_${class_name}" type="checkbox" data-recordid="${row_id}">`;
+    }
+
     /**
      * Set the data to be used for the totals row at the bottom.
      * If there is no totals data don't set anything.
@@ -507,14 +762,14 @@ export class Grid extends Object_Base {
             this.totals_data = row_data;
         }
 
-        let grid_body = document.getElementsByClassName( `.${wsgrid_body}` );
-        if( grid_body.length != 0 ) {
-            let element = grid_body.querySelector( `.${wsgrid_totals}` );
+        let grid_footer = document.getElementsByClassName( `.${wsgrid_footer}` );
+        if( grid_footer.length != 0 ) {
+            let element = grid_footer.querySelector( `.${wsgrid_totals}` );
             if( element !== null ) {
                 element.remove();
             }
             let headerData = this._generate_totals_row();
-            grid_body.append( headerData );
+            grid_footer.append( headerData );
         }
     }
 
@@ -531,24 +786,18 @@ export class Grid extends Object_Base {
      * This updates the displayed data using the data stored data array.
      */
     refresh() {
-        //TODO: make a refresh button work
-        // $( `#${this.id} .${wsgrid_header}_row` ).empty();
-        // let headerData = this._generate_column_headers( '' );
-        // $( `#${this.id} .${wsgrid_header}_row` ).append( headerData );
-        //
-        // $( `#${this.id} .${wsgrid_body}` ).empty();
-        // let rowData = this.generateRows();
-        // $( `#${this.id} .${wsgrid_body}` ).append( rowData );
-        //
-        // // generate footer
-        // $( `#${this.id} .${wsgrid_footer}` ).empty();
-        // let footerData = this._generateTotalsRow();
-        // $( `#${this.id} .${wsgrid_footer}` ).append( footerData );
-        //
-        // let gridElement = document.getElementById( this.id );
-        // let event = document.createEvent( 'HTMLEvents' );
-        // event.initEvent( 'gridComplete', true, true );
-        // gridElement.dispatchEvent( event );
+        let header = this.grid.querySelector( `.${wsgrid_header}` );
+        header.innerHTML = this._generate_column_headers( '' );
+
+        let body = this.grid.querySelector( `.${wsgrid_body}` );
+        body.innerHTML = this._generate_rows();
+
+        let footer = this.grid.querySelector( `.${wsgrid_footer}` );
+        footer.innerHTML = this._generate_totals_row();
+
+        let event = document.createEvent( 'HTMLEvents' );
+        event.initEvent( 'grid_complete', true, true );
+        this.grid.dispatchEvent( event );
     }
 
     /**
@@ -558,7 +807,6 @@ export class Grid extends Object_Base {
     append_row( record ) {
 
         this.data.push( record );
-        psg.log( "data", this.data );
         $( `#${this.id} .${wsgrid_body}` ).empty();
         let rowData = this.generateRows();
         $( `#${this.id} .${wsgrid_body}` ).append( rowData );
@@ -575,8 +823,7 @@ export class Grid extends Object_Base {
             this.data[ row ].splice( row, 1 );
         }
 
-        //TODO: make a refresh function
-        //this.refresh();
+        this.refresh();
     }
 
     /**
@@ -611,18 +858,23 @@ export class Grid extends Object_Base {
     }
 
     /**
-     * Return all rows that are currently selected.
-     * If no row is selected return an empty array.
-     * @return {Array} - array of rows numbers.
+     * Get the record ids of the selected row.
+     * @return {[type]} [description]
      */
     get_selected_rows() {
-        let selection = $( `#${this.id} .selected` );
         let records = [];
 
-        if( selection.length > 0 ) {
-            for( let i = 0; i < selection.length; i++ ) {
-                records.push( selection[ i ].data( 'record-id' ) );
+        if( this.multi_select ) {
+            let checkboxes = this.grid.querySelectorAll( `input[class^="${wsgrid_multiselect}_id"]` );
+
+            for( let i = 0; i < checkboxes.length; i++ ) {
+                if( checkboxes[ i ].checked ) {
+                    records.push( checkboxes[ i ].dataset.recordid );
+                }
             }
+        }
+        else {
+            records.push( $( `#${this.id} .selected` ).data( 'recordid' ) );
         }
 
         return records;
@@ -634,7 +886,7 @@ export class Grid extends Object_Base {
      * @param  {Boolean} [state=true] - show the column?
      */
     show_column( column_name, state = true ) {
-        this.column_hidden[ column_name ] = ( ! state );
+        this.columns.visible[ column_name ] = state;
 
         $( `.${wsgrid_column}_${column_name}` ).css( 'display', ( state ? '' : 'none' ) );
     }
@@ -650,8 +902,8 @@ export class Grid extends Object_Base {
      * Wrapper for showColumn( column_name, ! state );
      */
     toggle_column( column_name ) {
-        let newState = ! ( this.column_hidden[ column_name ] === false );
-        this.show_column( column_name, newState );
+        let newState = ! ( this.columns.visible[ column_name ] );
+        this.showColumn( column_name, newState );
     }
 
     /***********************************************************************************
@@ -670,12 +922,10 @@ export class Grid extends Object_Base {
      */
     click( event ) {
         let classList = event.target.classList;
-        let column_name = '';
-        let isHeader = false;
-        let isTotals = false;
+        let column_name = event.target.dataset.column;
         let row = 0;
 
-        if( this.drag_started ) {
+        if( this.drag.started ) {
             return;
         }
 
@@ -685,20 +935,15 @@ export class Grid extends Object_Base {
                 column_name = c.replace( `${wsgrid_column}_`, '' );
             }
             else if( c == `${wsgrid_header}_column` ) {
-                isHeader = true;
+                this.header_click( event );
             }
             else if( c == `${wsgrid_totals}_column` ) {
-                isTotals = true;
+                return;
+            }
+            else if( classList.contains( `${wsgrid_multiselect}_header` ) ) {
+                this._multiselect_header_checked( event.target.checked );
             }
         } );
-
-        if( isHeader ) {
-            this.header_click( event );
-            return;
-        }
-        else if( isTotals ) {
-            return;
-        }
 
         // Set the selected cell.
         let selected = document.getElementsByClassName( 'selected' );
@@ -728,77 +973,89 @@ export class Grid extends Object_Base {
      */
     dblclick( event ) {
         let classList = event.target.classList;
-        let row = Number( event.target.dataset.recordid );
-        let column_name = event.target.dataset.column;
 
-        let isHeader = false;
-        let isTotals = false;
-
-        if( self.drag_started ) {
+        if( this.drag.started ) {
             return;
         }
 
-        // get the column name
-        classList.forEach( ( c ) => {
-            if( c == `${wsgrid_header}_column` ) {
-                isHeader = true;
+
+        if( classList.contains( `${wsgrid_cell}` ) ) {
+            let row = Number( event.target.dataset.recordid );
+            let column_name = event.target.dataset.column;
+
+            // only call the user defined function if it exists.
+            if( typeof( this.events.dblclick ) == 'function' ) {
+                this.events.dblclick( row, column_name, this.data[ row ] );
             }
-            else if( c == `${wsgrid_totals}_column` ) {
-                isTotals = true;
-            }
-        } );
+            else {
+                // If this column is editable create an editor
+                // for the user to change the data.
+                if( this.columns.visible[ column_name ]
+                    && this.columns.editable[ column_name ]
+                ) {
+                    let properties = {};
+                    let keys = Object.keys( column_defaults );
+                    for( let key of keys ) {
+                        properties[ key ] = this.columns[ key ][ column_name ];
+                    }
 
-        if( isHeader ) {
-            this.header_click( event );
-            return;
-        }
-        else if( isTotals ) {
-            return;
-        }
-
-        // only call the user defined function if it exists.
-        if( typeof( this.events.dblclick ) == 'function' ) {
-            this.events.dblclick( row, column_name, this.data[ row ] );
-        }
-        else {
-            // If this column is editable create an editor
-            // for the user to change the data.
-            let count = this.column_model.length;
-            for( let i = 0; i < count; i++ ) {
-                if( this.column_model[ i ].name == column_name
-                    && this.column_model[ i ].editable == true ) {
-
-                    this._inline_editor( event.target, i, this.column_model[ i ] );
+                    this._inline_editor( event.target, properties );
                 }
             }
         }
     }
 
+    resize( e ) {
+        this._calculate_columns();
+        this.refresh();
+    }
+
     mousedown( e ) {
-        console.log( "mouse down", e );
         let classList = e.target.classList;
         if( classList.contains( `${wsgrid_header}_column_resize` ) ) {
-            this.drag_started = true;
+            this.drag.started = true;
+            this.drag.type = 'resize';
             this._column_resize_start( e );
+        }
+        else if( classList.contains( `${wsgrid_header}_column_move` ) ) {
+            this.drag.started = true;
+            this.drag.type = 'move';
+            this._column_move_start( e );
         }
     }
 
     mousemove( e ) {
-        if( e.buttons == 1 && this.drag_started ) {
-            this._column_resize( e );
+        if( e.buttons == 1 && this.drag.started ) {
+            if( this.drag.type == 'resize' ) {
+                this._column_resize( e );
+            }
+            else if( this.drag.type == 'move' ) {
+                this._column_move( e );
+            }
         }
     }
     mouseup( e ) {
-        if( this.drag_started ) {
-            this._column_resize_end( e );
-            this.drag_started = false;
+        if( this.drag.started ) {
+            switch( this.drag.type ) {
+                case 'resize':
+                    this._column_resize_end( e );
+                    break;
+                case 'move':
+                    this._column_move_end( e );
+                    break;
+                default:
+                    break;
+            }
+
+            this.drag.started = false;
+            this.drag.started = undefined;
         }
     }
 
     grid_complete( e ) {
 
-        if( typeof( self.methods.grid_complete ) == 'function' ) {
-            self.methods.grid_complete( self.data );
+        if( typeof( this.events.grid_complete ) == 'function' ) {
+            this.events.grid_complete( this.data );
         }
     }
 
@@ -836,6 +1093,9 @@ export class Grid extends Object_Base {
      * @param  {Event} event   - DOM Event.
      */
     header_click( event ) {
+        if( ! this.column_sort ) {
+            return;
+        }
         let column_name = event.target.dataset.column;
 
         // only call the user defined function if it exists.
@@ -848,6 +1108,7 @@ export class Grid extends Object_Base {
                 return this._basic_sorting( column_name, a, b );
             } );
 
+            this.sort_column = column_name;
             this.sort_direction = ( this.sort_direction == 'asc' ? 'desc' : 'asc' );
 
             this.display();
@@ -894,7 +1155,7 @@ export class Grid extends Object_Base {
      * @return {[type]}             [description]
      */
     _get_value( column_name, object ) {
-        let type = this.column_types[ column_name ];
+        let type = this.columns.type[ column_name ];
         let value = object[ column_name ];
 
         if( typeof( type ) == 'function' ) {
@@ -906,9 +1167,12 @@ export class Grid extends Object_Base {
             case 'string':
                 return String( value ).toLowerCase();
             case 'number':
-                value = psg.number.fromMoney( value );
+                value = this.from_currency( value );
                 return Number( value );
             // case 'date':
+            //     if( value == '' || value == undefined ) {
+            //         return 0;
+            //     }
             //     let date_format = 'YYYY-MM-DD';
             //     if( value.indexOf( '/' ) != -1 ) {
             //         date_format = 'M/D/YYYY';
@@ -924,11 +1188,10 @@ export class Grid extends Object_Base {
     /**
      * Generate the inline editor dialogs.
      * @param  {HTMLElment} cell       - HTML Elment of the table cell.
-     * @param  {Number} index          - Index of the properties in the column_model
      * @param  {[type]} properties
      * @return {[type]}            [description]
      */
-    _inline_editor( cell, index, properties ) {
+    _inline_editor( cell, properties ) {
         let editor = '';
         let cell_value = this.data[ cell.dataset.recordid ][ properties.name ];
 
@@ -936,8 +1199,8 @@ export class Grid extends Object_Base {
         if( cell.firstChild == '#text' ) {
             return cell.innerHTML;
         }
-        console.log( cell_value, cell );
-        let value = convert_html_entities( cell_value );
+
+        let value = convert_html_entities( String( cell_value ) );
 
         if( properties.type == 'number' ) {
             value = this.from_currency( value );
@@ -963,10 +1226,38 @@ export class Grid extends Object_Base {
         cell.innerHTML = editor;
         let self = this;
 
+        cell.firstChild.addEventListener( 'keydown', ( event ) => {
+
+            switch( event.keyCode ) {
+                case 9:  //tab
+                case 13: // enter
+                //case 37: // left arrow
+                case 38: // up arrow
+                //case 39: // right arrow
+                case 40: // down arrow
+                    event.preventDefault();
+                    break;
+                default:
+                    break;
+            }
+
+            this.event_trigger = event;
+        } );
+
         // Force an enter event to be a blur event and leave the field.
         cell.firstChild.addEventListener( 'keyup', ( event ) => {
-            if( event.keyCode == 13 ) {
-                cell.firstChild.blur();
+
+            switch( event.keyCode ) {
+                case 9:  // tab
+                case 13: // enter
+                //case 37: // left arrow
+                case 38: // up arrow
+                //case 39: // right arrow
+                case 40: // down arrow
+                    cell.firstChild.blur();
+                    break;
+                default:
+                    break;
             }
         } );
 
@@ -974,23 +1265,47 @@ export class Grid extends Object_Base {
         cell.firstChild.addEventListener( 'blur', ( event ) => {
             let e = new Event( 'click' );
             document.dispatchEvent( e );
-            console.log( "blur", event, event.relatedTarget );
-            // FIXME: a hack to see if the tab key was pressed.
-            if( event.relatedTarget !== null ) {
-                this._open_next_editor( event, cell );
+
+            if( typeof( this.event_trigger ) !== 'undefined' ) {
+                let keyCode = this.event_trigger.keyCode;
+                switch( keyCode ) {
+                    // case 37: // left arrow
+                    //     this._open_left_editor( event, cell );
+                    //     break;
+                    case 38: // up arrow
+                        this._open_up_editor( event, cell );
+                        break;
+                    // case 39: // right arrow
+                    //     this._open_right_editor( event, cell );
+                    //     break;
+                    case 40: // down arrow
+                        this._open_down_editor( event, cell );
+                        break;
+                    case 9:
+                        if( this.event_trigger.shiftKey ) {
+                            this._open_previous_editor( event, cell );
+                        }
+                        else {
+                            this._open_next_editor( event, cell );
+                        }
+                        break;
+                    default:
+                        break;
+                }
             }
+
+            this.event_trigger = undefined;
         } );
 
         document.addEventListener( 'click', function click_close_editor( event ) {
 
-            // if we're clicking in the editor don't close it.
+        // if we're clicking in the editor don't close it.
             if( typeof( cell.firstChild ) != 'undefined'
-                && event.target == cell.firstChild ) {
+            && event.target == cell.firstChild ) {
                 return;
             }
 
-            let column_name = self.column_model[ index ].name;
-            if( self._close_editor( event, cell, column_name ) ) {
+            if( self._close_editor( event, cell ) ) {
                 document.removeEventListener( 'click', click_close_editor );
             }
         } );
@@ -1008,7 +1323,7 @@ export class Grid extends Object_Base {
      * @param
      * @return {Boolean}       - did the editor close?
      */
-    _close_editor( event, cell, column_name ) {
+    _close_editor( event, cell ) {
         if( typeof( this.events.before_inline_closed ) == 'function' ) {
             if( ! this.events.before_inline_closed( row, column, value, row_data ) ) {
                 return false;
@@ -1017,6 +1332,7 @@ export class Grid extends Object_Base {
 
         //TODO: is there a better way to get the recordId instead of hard coding it?
         let row_id = cell.dataset.recordid;
+        let column_name = cell.dataset.column;
         let new_value = cell.firstChild.value;
 
         if( cell.firstChild.type == 'checkbox' ) {
@@ -1028,14 +1344,12 @@ export class Grid extends Object_Base {
             }
         }
 
-        let column_number = this._get_number_from_column_name( column_name );
-
-        let formatType = typeof( this.column_model[ column_number ].format );
+        let formatType = typeof( this.columns.format[ column_name ] );
         if( formatType == 'string' ) {
-            new_value = this[ `format_${this.column_model[ column_number ].format.toLowerCase()}` ]( new_value );
+            new_value = this[ `format_${this.columns.format[ column_name ].toLowerCase()}` ]( new_value );
         }
-        if( formatType == 'function' ) {
-            new_value = this.column_model[ column_number ].format( new_value );
+        else if( formatType == 'function' ) {
+            new_value = this.columns.format[ column_name ]( new_value );
         }
 
         cell.innerHTML = new_value;
@@ -1064,36 +1378,98 @@ export class Grid extends Object_Base {
      */
     _open_next_editor( event, cell ) {
         let current_record = cell.dataset.recordid;
-        let column_name = cell.dataset.column;
         let column_id = cell.dataset.columnid;
 
-        //TODO: refactor to handle shift + tab ...
         let next_id = Number( column_id ) + 1;
-        for( let i = next_id; i <= this.column_model.length; i++ ) {
+        for( let i = next_id; i <= this.column_order.length; i++ ) {
             //if we've checked all the fields in this record move on to the next record...
-            if( i == this.column_model.length ) {
+            if( i == this.column_order.length ) {
                 current_record++;
                 i = 0;
             }
 
-            if( ! this.column_hidden[ column_name ] && this.column_model[ i ].editable ) {
-                let current_column = this.column_model[ i ].name;
-                console.log( `.${wsgrid_row}_${current_record} td.${wsgrid_column}_${current_column}` );
+            let current_column = this.column_order[ i ];
+            if( this.columns.visible[ current_column ] && this.columns.editable[ current_column ] ) {
                 let e = new Event( 'dblclick', { bubbles: true } );
                 let target = this.grid.querySelector( `.${wsgrid_row}_${current_record} td.${wsgrid_column}_${current_column}` );
-                target.dispatchEvent( e );
+
+                if( target !== null ) {
+                    target.dispatchEvent( e );
+                }
+                return;
+            }
+        }
+    }
+
+    /**
+     * Find the previous editor to open and open it.
+     * @param  {[type]} cell [description]
+     * @return {[type]}      [description]
+     */
+    _open_previous_editor( event, cell ) {
+        let current_record = cell.dataset.recordid;
+        let column_id = cell.dataset.columnid;
+
+        let next_id = Number( column_id ) - 1;
+        for( let i = next_id; i >= 0; i-- ) {
+            //if we've checked all the fields in this record move on to the next record...
+            if( i == 0 ) {
+                current_record--;
+                i = this.column_order.length - 1;
+            }
+
+            let current_column = this.column_order[ i ];
+            if( this.columns.visible[ current_column ] && this.columns.editable[ current_column ] ) {
+                let e = new Event( 'dblclick', { bubbles: true } );
+                let target = this.grid.querySelector( `.${wsgrid_row}_${current_record} td.${wsgrid_column}_${current_column}` );
+
+                if( target !== null ) {
+                    target.dispatchEvent( e );
+                }
 
                 return;
             }
         }
     }
 
-    _get_number_from_column_name( column_name ) {
-        for( let i = 0; i < this.column_model.length; i++ ) {
-            if( this.column_model[ i ].name == column_name ) {
-                return i;
-            }
+    /**
+     * Find the previous editor to open and open it.
+     * @param  {[type]} cell [description]
+     * @return {[type]}      [description]
+     */
+    _open_up_editor( event, cell ) {
+        let current_record = cell.dataset.recordid;
+        let column_name = cell.dataset.column;
+
+        current_record--;
+
+        if( current_record == -1 ) {
+            current_record += this.data.length;
         }
+
+        let e = new Event( 'dblclick', { bubbles: true } );
+        let target = this.grid.querySelector( `.${wsgrid_row}_${current_record} td.${wsgrid_column}_${column_name}` );
+        target.dispatchEvent( e );
+    }
+
+    /**
+     * Find the previous editor to open and open it.
+     * @param  {[type]} cell [description]
+     * @return {[type]}      [description]
+     */
+    _open_down_editor( event, cell ) {
+        let current_record = cell.dataset.recordid;
+        let column_name = cell.dataset.column;
+
+        current_record++;
+
+        if( current_record == this.data.length ) {
+            current_record = 0;
+        }
+
+        let e = new Event( 'dblclick', { bubbles: true } );
+        let target = this.grid.querySelector( `.${wsgrid_row}_${current_record} td.${wsgrid_column}_${column_name}` );
+        target.dispatchEvent( e );
     }
 
     /**
@@ -1198,6 +1574,10 @@ export class Grid extends Object_Base {
      * Field formatter for dates.
      */
     format_date( cellValue ) {
+        if( cellValue == '' || cellValue == undefined ) {
+            return '';
+        }
+
         let format = 'YYYY-MM-DD';
 
         if( cellValue.indexOf( '/' ) >= 0 ) {

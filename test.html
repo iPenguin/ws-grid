@@ -7,7 +7,8 @@
 </head>
 <body>
     <input type="text" id="filter"><select id="filter_column"></select>
-    <div id='grid' style="height:375px;width: 1200px;"></div>
+    <!-- To have the grid resize when the window size changes make the div's size based on percent of space -->
+    <div id='grid' style="height:calc( 100% - 60px );width: calc( 100% - 10px );"></div>
     <script type="module" src="./test.js"></script>
 </body>
 </html>

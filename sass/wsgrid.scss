@@ -4,47 +4,6 @@
 $font-family: "sans-serif";
 $font-size: 14px;
 
-.wsgrid__header_table {
-    background: linear-gradient(to bottom, rgba(238,238,238,1) 0%,rgba(204,204,204,1) 100%);
-    border: 1px solid black;
-    font-family: $font-family;
-    font-size: $font-size;
-    font-weight: bold;
-
-    overflow: auto;
-    position:relative;
-    width: calc( 100% - 10px );
-
-    td:hover {
-        background-color: #ececec;
-    }
-
-    td.selected {
-        background: linear-gradient(to bottom, rgba(238,238,238,1) 0%,rgba(204,204,204,1) 100%);
-    }
-    tbody {
-    	display: block;
-    	overflow: auto;
-
-        tr:hover {
-            background: linear-gradient(to bottom, rgba(238,238,238,1) 0%,rgba(204,204,204,1) 100%);
-        }
-    }
-
-    th,
-    td {
-        border-right: 1px solid black;
-        padding: 0;
-    	text-align: left;
-    	vertical-align: top;
-        display: inline-block;
-    }
-    th:last-of-type,
-    td:last-of-type {
-        border-right: none;
-    }
-}
-
 .wsgrid__table {
     background-color: white;
     border: 1px solid lightgray;
@@ -55,13 +14,14 @@ $font-size: 14px;
     height: 100%;
     overflow: auto;
     position:relative;
-    width: calc( 100% - 10px );
+    width: 100%;
 
     thead {
         cursor: pointer;
         position: sticky;
         top: 0;
         width: 100%;
+        z-index: 10;
 
         th {
             background: linear-gradient(to bottom, #eeeeee 0%,#cccccc 100%);
@@ -74,13 +34,19 @@ $font-size: 14px;
     	overflow: auto;
 
         tr:hover {
-            background-color: #ececec;
+            td {
+                background-color: #ececec;
+            }
+            .selected td:hover {
+                background-color: LightSkyBlue; /* light gray */
+            }
         }
     }
 
     tfoot {
         bottom: 0;
         position: sticky;
+        z-index: 10;
     }
 
     thead,
@@ -92,6 +58,9 @@ $font-size: 14px;
 
     tr {
         display: flex;
+    }
+    tr.selected {
+        background-color: #e0e0e0; /* light gray */
     }
 
     th,
@@ -144,13 +113,26 @@ $font-size: 14px;
     position: absolute;
     right: 0;
     top: 0;
-    width: 3px;
+    width: 5px;
 }
 .wsgrid__header_column_resize:hover {
     cursor: col-resize;
+}
+.wsgrid__header_column_move {
+    height: 100%;
+    left: 0;
+    position: absolute;
+    top: 0;
+    width: 25%;
+}
+.wsgrid__header_column_move:hover {
+    cursor: move;
 }
 #wsgrid__header_column_resize_visual {
     border: 2px dashed gray;
     position: fixed;
     width: 0;
+}
+.wsgrid__multiselect_cell {
+    width: 20px;
 }

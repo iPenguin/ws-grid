@@ -4,24 +4,24 @@
 import {Grid} from './wsGrid.js';
 
 let columns = [
-    { name: 'id',         hidden: true,                                    },
-    { name: 'first_name', label: 'First Name', width: 200, align: 'left',   fixed: false, type: 'text',     editable: true },
-    { name: 'last_name',  label: 'Last Name',  width: 200, align: 'left',   fixed: false, type: 'text',     editable: true },
+    { name: 'id',         visible: false,                                    },
+    { name: 'first_name', label: 'First Name', width: 200, align: 'left',   fixed: false, type: 'text',     editable: true, frozen_left: true, },
+    { name: 'last_name',  label: 'Last Name',  width: 200, align: 'left',   fixed: false, type: 'text',     editable: true, frozen_left: true },
     { name: 'age',        label: 'Age',        width: 75,  align: 'right',  fixed: true,  type: 'number',   editable: true },
     { name: 'salary',     label: 'Salary',     width: 75,  align: 'right',  fixed: true,  type: 'number',   editable: true, format: 'currency' },
     { name: 'height',     label: 'Height',     width: 100, align: 'center', fixed: true,  type: 'text',     editable: true },
     { name: 'dob',        label: 'DOB',        width: 100, align: 'center', fixed: true,  type: 'text',     editable: true },
-    { name: 'color',      label: 'Color',      width: 75,  align: 'center', fixed: true,  type: 'color',    editable: true },
-    { name: 'selected',   label: 'Check',      width: 50,  align: 'center', fixed: true,  type: 'checkbox', editable: true, format: 'boolean' },
+    { name: 'color',      label: 'Color',      width: 75,  align: 'center', fixed: true,  type: 'color',    editable: true, frozen_right: true },
+    { name: 'selected',   label: 'Check',      width: 50,  align: 'center', fixed: true,  type: 'checkbox', editable: true, format: 'boolean', frozen_right: true },
 ];
 
 let grid = new Grid( {
-    id:           'grid',
-    url:          'ws://localhost:8000',
-    column_model: columns,
-    height:       300,
-    width:        1200,
-    events:       {
+    id:             'grid',
+    url:            'ws://localhost:8000',
+    column_reorder: true,
+    column_model:   columns,
+    multi_select:   true,
+    events:         {
         click( row, column_name, data ) {
         },
     },
