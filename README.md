@@ -8,6 +8,10 @@ It is intentionally using modern JavaScript features that do not work with older
 * Optional header clicking to sort columns.
 * Optional zebra striping.
 * Optional cell/row click, double click events.
+* Optional multi-selection of rows.
+* Optional Frozen columns on the right and/or left.
+* Optional Column resizing.
+* Optional Column reordering.
 * Does not require any third party libraries to use.
 * It uses modern JavaScript technologies, so don't expect it to work in older browser.
 * Is designed to be easily themed.
