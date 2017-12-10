@@ -1,53 +1,52 @@
 /**
+ * This module contains a Grid class that will create a table/grid for displaying and editing tabular data.
  *
  *Options:
- * id:              - id of DOM element that will contain this grid.
- * height:          - height of grid. Set the height to an empty string to allow the grid to be the height of the data.
- * width:           - width of grid.
- * overflow         - Allow the columns to overflow the width of the grid. (default: false)
- * column_defaults: - Default values for all columns.
- * currency         - override function for how to format numbers as currency.
- * column_model:    - a list of options that will define how each column displays it's data.
- *     name            - name of data field passed into grid.
- *     label           - label to show at the top of the column.
- *     visible         - show or don't show a given column.
- *     width           - how wide to make the column, (number only) but this is calculated in pixels.
- *     align           - a string: left, right, or center.
- *     fixed           - fixed width true/false
- *     type            - This helps with sorting. Valid values are: text, string, number, date, datetime, time
- *                        NOTE: you can also assign a function to type and it will run the custom function on each
- *                        value to transform the data for sorting.
- *     editable        - Can this column be edited?
- *     frozen          - Is this column locked in place? left or right?
- *     classes         - Custom css classes to apply to the column
- *     format          - string or function on how to format the data, a function should return a string.
  *
- * events:        - an object containing functions as elements.
+ * column_defaults: - An object containing default values for all columns.
+ * column_model:    - a list of options that will define how each column displays it's data.
+ *     name      - String          - Name of data field passed into grid.
+ *     label     - String          - Label to show at the top of the column.
+ *     visible   - Boolean         - Is the column visible?
+ *     width     - Number          - How wide to make the column, (number only) but this is calculated in pixels.
+ *     align     - String          - A string: left, right, or center.
+ *     fixed     - Boolean         - When loading always start with the width given.
+ *     type      - String/function - The type is used to determine the sorting.
+ *                                   Valid values are: text, string, number, date, datetime, time
+ *                                   NOTE: you can also assign a function and it will run the custom function.
+ *     editable  - Boolean         - Can this column be edited?
+ *     frozen    - Boolean         - Is this column locked in place? left or right?
+ *     classes   - String          - Custom css classes to apply to the column
+ *     format    - String/function - On how to format the data, a function should return a string.
+ * connection:
+ *     type      - String          - Type of connection used: 'Ajax' or 'Socket'.
+ *     url       - String          - URL used to connect to the server.
+ *                                   examples: '/api/grid/data', 'wss://example.com/api/grid/data'
+ * currency:        - Override function for how to format numbers as currency.
+ * events:          - an object containing functions as elements.
  *     click( row, column, rowData )         - Click event for a given cell.
  *     dblclick( row, column_name, rowData ) - Double click event for cells, the grid passes in row,
- *                                                column name, and row data.
+ *                                             column name, and row data.
  *     load_complete( data )                 - After the data has been given to the grid,
- *                                                but before the ui is generated.
- *     data_loaded( data )                   - After the data is loaded before the grid is generated.
+ *                                             but before the ui is generated.
+ *     data_loaded( data )                   - After the data is loaded, but before the grid is generated.
  *     data_changed( change )                - Fires when the internal data for the grid is changed.
- *                                                change contains row_id, column_name, new_value, old_value,
+ *                                             change contains row_id, column_name, new_value, old_value,
  *     grid_complete( data )                 - After the data has been given to the grid
- *                                                and after the ui has been generated.
+ *                                             and after the ui has been generated.
  *
  *     sort_row                              - After the user has manually changed the row order.
  *     after_edit                            - After the user has edited the data, and the editor has closed.
  *     after_save                            - After the editor has closed and the data has been saved.
  *
- * filters:
- *
- * connection:
- *     type              - String  - Type of connection used: 'Ajax' or 'Socket'.
- *     url               - String  - URL used to connect to the server.
- *                                   examples: '/api/grid/data', 'wss://example.com/api/grid/data'
- * Editing Events:
- *    before_inline_opened( row, column_name, value, row_data ) - return '' to prevent a dialog opening.
- *    before_inline_closed( row, column_name, value, row_data ) - can prevent the editor from closing and loosing focus.
+ *    before_inline_opened( row, column_name, value, row_data )     - return '' to prevent a dialog opening.
+ *    before_inline_closed( row, column_name, value, row_data )     - can prevent the editor from closing and loosing focus.
  *    before_inline_submitted( row, column_name, value, row_data )  - can manipulate the data before it's saved to the local data model.
+ * filters:         - An object with filtering functions.
+ * height:          - Height of grid. Set the height to an empty string to allow the grid to be the height of the data.
+ * id:              - ID of DOM element that will contain this grid.
+ * overflow         - Allow the columns to overflow the width of the grid. (default: false)
+ * width:           - Width of grid.
  *
  **/
 
@@ -169,6 +168,7 @@ export class Grid extends Object_Base {
         this.grid.addEventListener( 'mouseup', ( event ) => { this.mouseup.call( this, event ); } );
         this.grid.addEventListener( `${wsgrid_data}.cell_changed`, ( event ) => { this.data_changed.call( this, event ); } );
         window.addEventListener( 'resize', ( event ) => { this.resize.call( this, event ); } );
+
         // Needed for grid resizing.
         this.grid.style.position = 'relative';
     }
@@ -201,6 +201,10 @@ export class Grid extends Object_Base {
         }
     }
 
+    /**
+     * Mouse down resize event handler, start the resize event.
+     * @param  {Event} e     - trigger event for resize start.
+     */
     _column_resize_start( e ) {
         e.preventDefault();
 
@@ -216,13 +220,20 @@ export class Grid extends Object_Base {
         this.seperator.start_drag = e.pageX;
         this.grid.append( this.seperator );
     }
-
+    /**
+     * Mouse move resize event handler
+     * @param  {Event} e     - trigger event for mouse moving
+     */
     _column_resize( e ) {
         e.preventDefault();
 
         this.seperator.dataset.width_delta = ( e.pageX - this.seperator.start_drag );
         this.seperator.style.left = `${e.pageX}px`;
     }
+    /**
+     * Mouse up resize event handler
+     * @param  {Event} e     - trigger event for mouse up
+     */
     _column_resize_end( e ) {
         e.preventDefault();
         let column_name = this.seperator.dataset.column;
@@ -235,6 +246,10 @@ export class Grid extends Object_Base {
         this.seperator.parentElement.removeChild( this.seperator );
     }
 
+    /**
+     * Mouse down column move event handler, start the column move event.
+     * @param  {Event} e     - trigger event for mouse down
+     */
     _column_move_start( e ) {
         e.preventDefault();
 
@@ -252,6 +267,10 @@ export class Grid extends Object_Base {
         this.grid.append( this.seperator );
         this.grid.style.cursor = 'move';
     }
+    /**
+     * Mouse move column move event handler
+     * @param  {Event} e     - trigger event for mouse moving
+     */
     _column_move( e ) {
         e.preventDefault();
 
@@ -274,6 +293,10 @@ export class Grid extends Object_Base {
             }
         }
     }
+    /**
+     * Mouse up column move event handler
+     * @param  {Event} e     - trigger event for mouse up
+     */
     _column_move_end( e ) {
         e.preventDefault();
 
@@ -349,6 +372,12 @@ export class Grid extends Object_Base {
         console.log( "columns", this.columns );
     }
 
+    /**
+     * using all the properties from the grid figure out
+     * what all the widths for all the columns should be
+     * @param  {Boolean} [user_set=false]   - If the user changes the column width, don't override
+     *                                        it with variable column size calculations
+     */
     _calculate_columns( user_set = false ) {
         let count = this.column_model.length;
 
@@ -391,6 +420,11 @@ export class Grid extends Object_Base {
         }
     }
 
+    /**
+     * Set a new column width, update the column calculations, and recreat the table.
+     * @param {String} column_name   - Name of the column to update the width for
+     * @param {Number} width         - The new width of the column
+     */
     set_column_width( column_name, width ) {
         // set minimum width so we can still resize it
         // and the column doesn't completely disappear.
@@ -407,9 +441,7 @@ export class Grid extends Object_Base {
      * Generate the shell of the grid from scratch
      */
     generate_grid() {
-        let column_count = this.column_model.length;
-
-        let table_header = this._generate_column_headers( '' );
+        let table_header = this._generate_column_headers();
 
         let html = `<table class="${wsgrid_table} ${wsgrid_table}_${this.id}">`
             + `<thead class="${wsgrid_header} ${wsgrid_header}_${this.id}">${table_header}</thead>`
@@ -423,7 +455,7 @@ export class Grid extends Object_Base {
     }
 
     /**
-     * fill the grid with the given data and generate a table for display.
+     * Fill the grid with the given data and generate a table for display.
      * @param  {Array} data - Array of objects containing data in the form key: value
      */
     display( data ) {
@@ -551,6 +583,10 @@ export class Grid extends Object_Base {
         this.refresh();
     }
 
+    /**
+     * Event, checking the checkbox in the column header, (un)checks all the checkboxes
+     * @param  {Boolean} state    - The state to set the checkboxes to
+     */
     _multiselect_header_checked( state ) {
         let checkboxes = this.grid.querySelectorAll( `input[class^="${wsgrid_multiselect}_id"]` );
 
@@ -560,7 +596,11 @@ export class Grid extends Object_Base {
         }
     }
 
-    _generate_column_headers( columnClasses ) {
+    /**
+     * Using the column model properties create the column headers
+     * @return {String}               - HTML string of all <th> element in the row.
+     */
+    _generate_column_headers() {
         let header_row = '';
 
         if( this.multi_select ) {
@@ -663,6 +703,11 @@ export class Grid extends Object_Base {
         return false;
     }
 
+    /**
+     * Generate the styles used for this column based on if the column is frozen or not.
+     * @param  {String} column_name   - Name of the column we're generating styles for.
+     * @return {String}               - CSS styles in a string for use inline on the td elemement.
+     */
     _generate_frozen_styles( column_name ) {
         let frozen_style = '';
         let fixed_position = 0;
@@ -734,6 +779,14 @@ export class Grid extends Object_Base {
         return frozen_style;
     }
 
+    /**
+     * Generate the HTML for the checkbox used on each row of the multi-select grid.
+     * @param  {String} row_id     - Row ID, 'header', or ''
+     * @return {String}            - Contents/checkbox for the multiselect.
+     *                               If row_id == '', return no checkbox,
+     *                               If row_id == 'header' return a header checkbox
+     *                               If row_id == Row Number, return a per record checkbox.
+     */
     _generate_multiselect( row_id ) {
         let class_name = row_id;
 
@@ -773,6 +826,10 @@ export class Grid extends Object_Base {
         }
     }
 
+    /**
+     * Generate the html for a totals row for the footer of the table.
+     * @return {String}      - HTML for the totals row.
+     */
     _generate_totals_row() {
         if( this.totals_data === undefined ) {
             return '';
@@ -787,7 +844,7 @@ export class Grid extends Object_Base {
      */
     refresh() {
         let header = this.grid.querySelector( `.${wsgrid_header}` );
-        header.innerHTML = this._generate_column_headers( '' );
+        header.innerHTML = this._generate_column_headers();
 
         let body = this.grid.querySelector( `.${wsgrid_body}` );
         body.innerHTML = this._generate_rows();
@@ -1005,11 +1062,19 @@ export class Grid extends Object_Base {
         }
     }
 
+    /**
+     * Resize event, recalculate the size of the grid and re-draw it.
+     * @param  {Event} e     - Trigger event for resizing
+     */
     resize( e ) {
         this._calculate_columns();
         this.refresh();
     }
 
+    /**
+     * Mouse down event handler
+     * @param  {Event} e     - trigger event
+     */
     mousedown( e ) {
         let classList = e.target.classList;
         if( classList.contains( `${wsgrid_header}_column_resize` ) ) {
@@ -1023,7 +1088,10 @@ export class Grid extends Object_Base {
             this._column_move_start( e );
         }
     }
-
+    /**
+     * Mouse move event handler
+     * @param  {Event} e     - trigger event
+     */
     mousemove( e ) {
         if( e.buttons == 1 && this.drag.started ) {
             if( this.drag.type == 'resize' ) {
@@ -1034,6 +1102,10 @@ export class Grid extends Object_Base {
             }
         }
     }
+    /**
+     * Mouse up event handler
+     * @param  {Event} e     - trigger event
+     */
     mouseup( e ) {
         if( this.drag.started ) {
             switch( this.drag.type ) {
@@ -1052,6 +1124,10 @@ export class Grid extends Object_Base {
         }
     }
 
+    /**
+     * grid_complete event handler
+     * @param  {Event} e     - trigger event
+     */
     grid_complete( e ) {
 
         if( typeof( this.events.grid_complete ) == 'function' ) {
@@ -1370,7 +1446,6 @@ export class Grid extends Object_Base {
         return true;
     }
 
-
     /**
      * Find the next editor to open and open it.
      * @param  {Event} event   - DOM event
@@ -1559,8 +1634,9 @@ export class Grid extends Object_Base {
      **********************************************************************/
 
     /**
-     * A field formatter for boolean data.
-     * True is 'X' false, is blank.
+     * Format a given value with a 'X' or ''
+     * @param  {String} cellValue    - Value to be formatted: 1 or 0
+     * @return {String}              - Formatted string
      */
     format_boolean( cellValue ) {
         if( Number( cellValue ) == 1 ) {
@@ -1571,7 +1647,9 @@ export class Grid extends Object_Base {
     }
 
     /**
-     * Field formatter for dates.
+     * Format a given value as a date in the form of M/D/YYYY
+     * @param  {String} cellValue    - Date in form or YYYY-MM-DD or M/D/YYYY
+     * @return {String}              - Formatted date of M/D/YYYY
      */
     format_date( cellValue ) {
         if( cellValue == '' || cellValue == undefined ) {
@@ -1588,6 +1666,11 @@ export class Grid extends Object_Base {
         return date.format( 'M/D/YYYY' );
     }
 
+    /**
+     * format the data as currency, a custom user function can override the default abilty.
+     * @param  {String} cellValue     - Value to format
+     * @return {String}               - Formatted value
+     */
     format_currency( cellValue ) {
         // Check for a user defined currency function first.
         if( typeof( this.currency ) == 'function' ) {
@@ -1598,9 +1681,10 @@ export class Grid extends Object_Base {
         return this.to_currency( value );
     }
 
-
     /**
      * Convert a dollar amount to a simple number.
+     * @param  {String} string       - Currency formatted string
+     * @return {Number}              - amount as a number
      */
     from_currency( string ) {
 
@@ -1625,7 +1709,10 @@ export class Grid extends Object_Base {
     /**
      * Convert a number to a dollar amount string.
      * TODO: add thousands seperator
-     **/
+     *
+     * @param  {Number/String} amount  - value that we want to format as an amount as currecy.
+     * @return {String}                - Amount with symbols as string.
+     */
     to_currency( amount ) {
         amount = this.with_precision( amount, 2, true );
 
