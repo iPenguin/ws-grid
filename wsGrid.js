@@ -211,6 +211,7 @@ export class Grid extends Object_Base {
         if( typeof( this.seperator ) == 'undefined' ) {
             this.seperator = document.createElement( 'div' );
             this.seperator.id = `${wsgrid_header}_column_resize_visual`;
+            this.seperator.dataset.width_delta = 0;
         }
         this.seperator.dataset.column = e.target.dataset.column;
         let rect = this.grid.getBoundingClientRect();
