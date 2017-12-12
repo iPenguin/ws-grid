@@ -333,8 +333,6 @@ export class Grid extends Object_Base {
 
         this.set_column_position( column_name, next_column_name );
 
-        // reset delta so we don't keep changning the column width, by just clicking on it.
-        this.seperator.dataset.width_delta = 0;
         this.seperator.parentElement.removeChild( this.seperator );
         this.grid.style.cursor = '';
     }
@@ -678,7 +676,7 @@ export class Grid extends Object_Base {
             this.is_filtered = true;
         }
 
-        this.display();
+        this.refresh();
     }
 
     /**
@@ -1188,7 +1186,7 @@ export class Grid extends Object_Base {
             this.sort_column = column_name;
             this.sort_direction = ( this.sort_direction == 'asc' ? 'desc' : 'asc' );
 
-            this.display();
+            this.refresh();
         }
     }
 
