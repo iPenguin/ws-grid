@@ -1556,6 +1556,9 @@ export class Grid extends Object_Base {
             }
         }
 
+        // save the data before it's formatted.
+        this.data[ row_id ][ column_name ] = new_value;
+
         let formatType = typeof( this.columns.format[ column_name ] );
         if( formatType == 'string' ) {
             new_value = this[ `format_${this.columns.format[ column_name ].toLowerCase()}` ]( new_value );
@@ -1566,7 +1569,6 @@ export class Grid extends Object_Base {
 
         cell.innerHTML = new_value;
 
-        this.data[ row_id ][ column_name ] = new_value;
 
         let old_value = cell.dataset.oldvalue;
 
