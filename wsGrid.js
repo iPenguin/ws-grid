@@ -32,8 +32,6 @@
  *     data_loaded( data )                   - After the data is loaded, but before the grid is generated.
  *     data_changed( change )                - Fires when the internal data for the grid is changed.
  *                                             change contains row_id, column_name, new_value, old_value,
- *     grid_complete( data )                 - After the data has been given to the grid
- *                                             and after the ui has been generated.
  *
  *     sort_row                              - After the user has manually changed the row order.
  *     after_edit                            - After the user has edited the data, and the editor has closed.
@@ -51,7 +49,6 @@
  **/
 
 import { Object_Base } from './object_base.js';
-import { CreateConnection } from './connection.js';
 import { Socket } from './socket.js';
 import { Ajax } from './ajax.js';
 
@@ -86,23 +83,22 @@ let column_defaults = {
 };
 
 let grid_defaults = {
-    height:          200,
-    width:           200,
-    events:          {},
-    filters:         [],
-    overflow:        false,
-    sort_column:     '',
-    sort_direction:  'asc',
-    column_reorder:  false,
-    column_resize:   true,
-    column_sort:     true,
-    row_reorder:     false,
-    multi_select:    false,
-    connection:     {
-        type:    'Socket',
-        url:     '',
-        options: {},
-    }
+    height:             200,
+    width:              200,
+    events:             {},
+    filters:            [],
+    overflow:           false,
+    sort_column:        '',
+    sort_direction:     'asc',
+    column_reorder:     false,
+    column_resize:      true,
+    column_sort:        true,
+    row_reorder:        false,
+    multi_select:       false,
+    connection_type:    'socket',
+    connection_options: {
+        url: '',
+    },
 };
 
 /**
@@ -139,10 +135,36 @@ export class Grid extends Object_Base {
             type:    undefined,
         };
 
-        this.connection = CreateConnection.create_connection( this.connection );
+        switch( this.connection_type ) {
+            case 'socket':
+                this.connection = new Socket( this.connection_options );
+                break;
+            case 'ajax':
+                this.connection = new Ajax( this.connection_options );
+                break;
+        }
+
         this.grid_container = document.getElementById( this.id );
 
-        this._parse_column_info();
+        let count = this.column_model.length;
+        this.column_width_info = new Array( count );
+
+        // fill in default values for all column properties so we always have something to work with.
+        for( let i = 0; i < count; i++ ) {
+            this.column_model[ i ] = Object.assign( {}, column_defaults, this.column_model[ i ] );
+        }
+
+        this.data = [];
+        this.totals_data = undefined;
+
+        // Make sure the element the user wants is actually in the DOM, if not throw an error the user can figure out.
+        let gridElement = document.getElementById( this.id );
+        if( gridElement == null ) {
+            throw new Error( `Could not find grid element. Is ${this.id} an element in the DOM?` );
+        }
+
+        this.is_filtered = false;
+
         this._create_lookup_tables( all_options.column_model );
         this._calculate_columns();
 
@@ -182,24 +204,6 @@ export class Grid extends Object_Base {
      *   2) all remaining columns are calculated as a percentage of the remaining space.
      *       That percentage is calculated from the default width of the column / the width of all flexable columns.
      */
-    _parse_column_info() {
-        let count = this.column_model.length;
-        this.column_width_info = new Array( count );
-
-        // fill in default values for all column properties so we always have something to work with.
-        for( let i = 0; i < count; i++ ) {
-            this.column_model[ i ] = Object.assign( {}, column_defaults, this.column_model[ i ] );
-        }
-
-        this.data = [];
-        this.totals_data = undefined;
-
-        // Make sure the element the user wants is actually in the DOM, if not throw an error the user can figure out.
-        let gridElement = document.getElementById( this.id );
-        if( gridElement == null ) {
-            throw new Error( `Could not find grid element. Is ${this.id} an element in the DOM?` );
-        }
-    }
 
     /**
      * Mouse down resize event handler, start the resize event.
@@ -337,6 +341,80 @@ export class Grid extends Object_Base {
         this.grid.style.cursor = '';
     }
 
+    _row_move_start( e ) {
+        e.preventDefault();
+        if( typeof( this.row_seperator ) == 'undefined' ) {
+            this.row_seperator = document.createElement( 'div' );
+            this.row_seperator.id = `${wsgrid_header}_row_resize_visual`;
+        }
+
+        this.row_seperator.dataset.source = e.target.dataset.recordid;
+        let rect = this.grid.getBoundingClientRect();
+        this.row_seperator.style.left = `${rect.left}px`;
+        this.row_seperator.style.width = `${rect.width}px`;
+        this.row_seperator.style.top = `${e.pageY}px`;
+        this.row_seperator.start_drag = e.pageY;
+        this.grid.append( this.row_seperator );
+        this.grid.style.cursor = 'move';
+    }
+    _row_move( e ) {
+        e.preventDefault();
+
+        let move_targets = this.grid.querySelectorAll( `.${wsgrid_column}_row_move_target` );
+
+        for( let i = 0; i < move_targets.length; i++ ) {
+            let rect = move_targets[ i ].getBoundingClientRect();
+            let split = rect.top + ( rect.height * ( 2 / 3 ) );
+
+            if( e.pageY > rect.top && e.pageY <= rect.bottom ) {
+                if( e.pageY < split ) {
+                    this.row_seperator.style.top = `${rect.top}px`;
+                    continue;
+                }
+                else {
+                    this.row_seperator.style.top = `${rect.bottom}px`;
+                    continue;
+                }
+            }
+        }
+    }
+    _row_move_end( e ) {
+        let previous_row = 0;
+
+        e.preventDefault();
+
+        let move_targets = this.grid.querySelectorAll( `.${wsgrid_column}_row_move_target` );
+
+        for( let i = 0; i < move_targets.length; i++ ) {
+            let rect = move_targets[ i ].getBoundingClientRect();
+            let split = rect.top + ( rect.height * ( 2 / 3 ) );
+
+            if( e.pageY > rect.top && e.pageY <= rect.bottom ) {
+
+                if( e.pageY < split ) {
+                    this.row_seperator.style.top = `${rect.top}px`;
+                    previous_row = move_targets[ i ];
+                    continue;
+                }
+                else {
+                    this.row_seperator.style.top = `${rect.bottom}px`;
+                    previous_row = move_targets[ i ];
+                    continue;
+                }
+            }
+        }
+        let previous_record = 0;
+
+        if( previous_row ) {
+            previous_record = previous_row.dataset.recordid;
+        }
+
+        this.set_row_position( this.row_seperator.dataset.source, previous_record );
+
+        this.row_seperator.parentElement.removeChild( this.row_seperator );
+        this.grid.style.cursor = '';
+    }
+
     /**
      * turn the column model on it's side so we can do property lookups using the column name.
      * @param  {Object} column_model        - Column model used to create this grid.
@@ -346,6 +424,7 @@ export class Grid extends Object_Base {
 
         this.columns = {};
         this.column_order = [];
+        this.row_order = [];
 
         // loop through the columns and create a set of lookup tables for all properties.
         for( let i = 0; i < colCount; i++ ) {
@@ -436,6 +515,21 @@ export class Grid extends Object_Base {
         this.refresh();
     }
 
+    set_row_position( row_id, previous_row ) {
+        let row_data = this.data[ row_id ];
+        this.data.splice( row_id, 1 );
+        this.data.splice( previous_row, 0, row_data );
+
+        let e = new Event( 'row.moved', { bubbles: true } );
+        e.data = {
+            row:       row_id,
+            previous:  previous_row,
+        };
+        this.grid.dispatchEvent( e );
+
+        this.refresh();
+    }
+
     /**
      * Generate the shell of the grid from scratch
      */
@@ -468,6 +562,7 @@ export class Grid extends Object_Base {
 
     /**
      * Generate the table rows using the internal data array
+     * @return {String}         - the row data as a string of HTML
      */
     _generate_rows() {
 
@@ -509,6 +604,8 @@ export class Grid extends Object_Base {
 
     /**
      * Generate the html for the given row of data.
+     * @param  {[type]} row      [description]
+     * @param  {[type]} rowClass [description]
      */
     _generate_row( record_id, data, row_classes = '', column_classes = '' ) {
         /*********************************************************************************
@@ -517,6 +614,10 @@ export class Grid extends Object_Base {
         let row_html = `<tr class="${wsgrid_row} ${wsgrid_row}_${record_id} ${row_classes}"`
                     + ( record_id == '' ? '' : `data-recordid="${record_id}"` )
                     + ` style="min-width:${this.min_column_width}px">`;
+
+        if( this.row_reorder ) {
+            row_html += `<td class="${wsgrid_column}_row_move_target" data-recordid="${record_id}"></td>`;
+        }
 
         if( this.multi_select ) {
             row_html += `<td class="${wsgrid_multiselect}_cell ${column_classes}" style="position:sticky;left:0;z-index:5;">`
@@ -579,6 +680,14 @@ export class Grid extends Object_Base {
     set_column_position( column_name, next_element ) {
         this.column_order.splice( this.column_order.indexOf( column_name ), 1 );
         this.column_order.splice( this.column_order.indexOf( next_element ), 0, column_name );
+
+        let e = new Event( 'column.moved', { bubbles: true } );
+        e.data = {
+            column: column_name,
+            next:   next_element,
+        };
+        this.grid.dispatchEvent( e );
+
         this.refresh();
     }
 
@@ -601,6 +710,10 @@ export class Grid extends Object_Base {
      */
     _generate_column_headers() {
         let header_row = '';
+
+        if( this.row_reorder ) {
+            header_row += `<th class="${wsgrid_column}_row_move_target_header" style="position:sticky;left:0;z-index:5;"></th>`;
+        }
 
         if( this.multi_select ) {
             header_row += `<th class="${wsgrid_multiselect}_cell"  style="position:sticky;left:0;z-index:5;">`
@@ -628,8 +741,10 @@ export class Grid extends Object_Base {
                 resize_handle = '';
             }
             else {
-                if( this.column_reorder ) {
-                    move_handle = `<span class='${wsgrid_header}_column_move' data-column='${column_name}'></span>`;
+                // if the column can be re-ordered and the column isn't frozen, include the move handler.
+                if( this.column_reorder
+                    && ( ! this.columns.frozen_right[ column_name ] && ! this.columns.frozen_left[ column_name ] ) ) {
+                    move_handle = `<span class='${wsgrid_header}_column_move_target' data-column='${column_name}'></span>`;
                 }
 
                 if( this.column_resize ) {
@@ -658,51 +773,6 @@ export class Grid extends Object_Base {
     }
 
     /**
-     * Create a filter and apply it to the data.
-     * @param  {Array} filters - An Array of filter Objects containing the following options:
-     *     type     - string - 'string', 'number',
-     *     operator - '==', '<', '>', '<=', '>=', '!=',
-     *     test     - string or number to test against.
-     *     join     - How to join this filter to the previous one.
-     * ie: [ { type: 'string', operator: '==', test: 'John' } ]
-     */
-    filter( filters ) {
-
-        if( typeof( filters ) == 'boolean' ) {
-            this.is_filtered = filters;
-        }
-        else {
-            this.filters = filters;
-            this.is_filtered = true;
-        }
-
-        this.refresh();
-    }
-
-    /**
-     * Should we filter out this record?
-     * @param  {Number}  index - the index number to test the filtering on.
-     * @return {Boolean}
-     */
-    _is_selected( index ) {
-
-        // If the filter isn't turned on, select everything.
-        if( ! this.is_filtered ) {
-            return true;
-        }
-
-        let row_data = this.data[ index ];
-
-        for( let i = 0; i < this.filters.length; i++ ) {
-            let f = this.filters[ i ];
-            if( row_data[ f.field ] == f.test ) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    /**
      * Generate the styles used for this column based on if the column is frozen or not.
      * @param  {String} column_name   - Name of the column we're generating styles for.
      * @return {String}               - CSS styles in a string for use inline on the td elemement.
@@ -720,6 +790,10 @@ export class Grid extends Object_Base {
                 if( this.columns.frozen_left[ key ] ) {
                     frozen_count++;
                 }
+            }
+
+            if( this.row_reorder ) {
+                fixed_position += 5 + 7;
             }
 
             if( this.multi_select ) {
@@ -838,6 +912,51 @@ export class Grid extends Object_Base {
     }
 
     /**
+     * Create a filter and apply it to the data.
+     * @param  {Array} filters - An Array of filter Objects containing the following options:
+     *     type     - string - 'string', 'number',
+     *     operator - '==', '<', '>', '<=', '>=', '!=',
+     *     test     - string or number to test against.
+     *     join     - How to join this filter to the previous one.
+     * ie: [ { type: 'string', operator: '==', test: 'John' } ]
+     */
+    filter( filters ) {
+
+        if( typeof( filters ) == 'boolean' ) {
+            this.is_filtered = filters;
+        }
+        else {
+            this.filters = filters;
+            this.is_filtered = true;
+        }
+
+        this.refresh();
+    }
+
+    /**
+     * Should we filter out this record?
+     * @param  {Number}  index - the index number to test the filtering on.
+     * @return {Boolean}
+     */
+    _is_selected( index ) {
+
+        // If the filter isn't turned on, select everything.
+        if( ! this.is_filtered ) {
+            return true;
+        }
+
+        let row_data = this.data[ index ];
+
+        for( let i = 0; i < this.filters.length; i++ ) {
+            let f = this.filters[ i ];
+            if( row_data[ f.field ] == f.test ) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
      * Refresh the data displayed in the grid.
      * This updates the displayed data using the data stored data array.
      */
@@ -852,7 +971,7 @@ export class Grid extends Object_Base {
         footer.innerHTML = this._generate_totals_row();
 
         let event = document.createEvent( 'HTMLEvents' );
-        event.initEvent( 'grid_complete', true, true );
+        event.initEvent( 'load_complete', true, true );
         this.grid.dispatchEvent( event );
     }
 
@@ -860,12 +979,12 @@ export class Grid extends Object_Base {
      * Add a record to the data
      * @param {Object} record  - a Javascript object containing keys matching the columns
      */
-    append_row( record ) {
+    append_rows( records ) {
+        //change data in place.
+        this.data.splice( this.data.length, 0, ...records );
 
-        this.data.push( record );
-        $( `#${this.id} .${wsgrid_body}` ).empty();
-        let rowData = this.generateRows();
-        $( `#${this.id} .${wsgrid_body}` ).append( rowData );
+        let body = this.grid.querySelector( `.${wsgrid_body}` );
+        body.innerHTML = this._generate_rows();
     }
 
     /**
@@ -880,6 +999,14 @@ export class Grid extends Object_Base {
         }
 
         this.refresh();
+    }
+
+    /**
+     * Count of the rows of data in the record set.
+     * @return {Number} - record set count
+     */
+    row_count() {
+        return this.data.length;
     }
 
     /**
@@ -930,7 +1057,10 @@ export class Grid extends Object_Base {
             }
         }
         else {
-            records.push( $( `#${this.id} .selected` ).data( 'recordid' ) );
+            let selected_rows = this.grid.querySelectorAll( '.selected' );
+            for( let i = 0; i < selected_rows.length; i++ ) {
+                records.push( selected_rows[ i ].dataset.recordid );
+            }
         }
 
         return records;
@@ -944,7 +1074,10 @@ export class Grid extends Object_Base {
     show_column( column_name, state = true ) {
         this.columns.visible[ column_name ] = state;
 
-        $( `.${wsgrid_column}_${column_name}` ).css( 'display', ( state ? '' : 'none' ) );
+        let column = this.grid.querySelectorAll( `.${wsgrid_column}_${column_name}` );
+        for( let i = 0; i < column.length; i++ ) {
+            column[ i ].style.display = ( state ? '' : 'none' );
+        }
     }
 
     /**
@@ -959,7 +1092,7 @@ export class Grid extends Object_Base {
      */
     toggle_column( column_name ) {
         let newState = ! ( this.columns.visible[ column_name ] );
-        this.showColumn( column_name, newState );
+        this.show_column( column_name, newState );
     }
 
     /***********************************************************************************
@@ -976,46 +1109,34 @@ export class Grid extends Object_Base {
      *    column_name - Name of the column clicked on.
      *    row_data    - data object for the row clicked on.
      */
-    click( event ) {
-        let classList = event.target.classList;
-        let column_name = event.target.dataset.column;
-        let row = 0;
+    click( e ) {
+        let classList = e.target.classList;
 
         if( this.drag.started ) {
             return;
         }
 
-        // get the column name
-        classList.forEach( ( c ) => {
-            if( c.startsWith( `${wsgrid_column}_` ) ) {
-                column_name = c.replace( `${wsgrid_column}_`, '' );
-            }
-            else if( c == `${wsgrid_header}_column` ) {
-                this.header_click( event );
-            }
-            else if( c == `${wsgrid_totals}_column` ) {
-                return;
-            }
-            else if( classList.contains( `${wsgrid_multiselect}_header` ) ) {
-                this._multiselect_header_checked( event.target.checked );
-            }
-        } );
-
-        // Set the selected cell.
-        let selected = document.getElementsByClassName( 'selected' );
-        let count = selected.length;
-
-        for( let i = 0; i < count; i++ ) {
-            selected[ i ].classList.remove( 'selected' );
+        if( classList.contains( `${wsgrid_header}_column` ) ) {
+            this.header_click( e );
         }
-        classList.add( 'selected' );
+        else if( classList.contains( `${wsgrid_multiselect}_header` ) ) {
+            this._multiselect_header_checked( e.target.checked );
+        }
+        else if( classList.contains( `${wsgrid_cell}` ) ) {
+            let selected = this.grid.getElementsByClassName( 'selected' );
+            let count = selected.length;
+            for( let i = 0; i < count; i++ ) {
+                selected[ i ].classList.remove( 'selected' );
+            }
 
-        // get the row
-        row = event.target.dataset.recordid;
+            e.target.classList.add( 'selected' );
 
-        // only call the user defined function if it exists.
-        if( typeof( this.events.click ) == 'function' ) {
-            this.events.click( row, column_name, this.data[ row ] );
+            let row = e.target.dataset.recordid;
+            let column = e.target.dataset.column;
+
+            if( typeof( this.events.click ) == 'function' ) {
+                this.events.click( row, column, this.data[ row ], e );
+            }
         }
     }
 
@@ -1027,8 +1148,8 @@ export class Grid extends Object_Base {
      *    column_name - Name of the column clicked on.
      *    row_data    - data object for the row clicked on.
      */
-    dblclick( event ) {
-        let classList = event.target.classList;
+    dblclick( e ) {
+        let classList = e.target.classList;
 
         if( this.drag.started ) {
             return;
@@ -1036,14 +1157,15 @@ export class Grid extends Object_Base {
 
 
         if( classList.contains( `${wsgrid_cell}` ) ) {
-            let row = Number( event.target.dataset.recordid );
-            let column_name = event.target.dataset.column;
+            let row = Number( e.target.dataset.recordid );
+            let column_name = e.target.dataset.column;
 
             // only call the user defined function if it exists.
             if( typeof( this.events.dblclick ) == 'function' ) {
-                this.events.dblclick( row, column_name, this.data[ row ] );
+                this.events.dblclick( row, column_name, this.data[ row ], e );
             }
-            else {
+
+            if( ! e.defaultPrevented ) {
                 // If this column is editable create an editor
                 // for the user to change the data.
                 if( this.columns.visible[ column_name ]
@@ -1055,7 +1177,13 @@ export class Grid extends Object_Base {
                         properties[ key ] = this.columns[ key ][ column_name ];
                     }
 
-                    this._inline_editor( event.target, properties );
+                    if( typeof( this.events.before_edit ) !== 'undefined' ) {
+                        this.events.before_edit( row, column_name, this.data[ row ], e );
+                    }
+
+                    if( ! e.defaultPrevented ) {
+                        this._inline_editor( event.target, properties );
+                    }
                 }
             }
         }
@@ -1081,10 +1209,15 @@ export class Grid extends Object_Base {
             this.drag.type = 'resize';
             this._column_resize_start( e );
         }
-        else if( classList.contains( `${wsgrid_header}_column_move` ) ) {
+        else if( classList.contains( `${wsgrid_header}_column_move_target` ) ) {
             this.drag.started = true;
-            this.drag.type = 'move';
+            this.drag.type = 'move_column';
             this._column_move_start( e );
+        }
+        else if( classList.contains( `${wsgrid_column}_row_move_target` ) ) {
+            this.drag.started = true;
+            this.drag.type = 'move_row';
+            this._row_move_start( e );
         }
     }
     /**
@@ -1093,11 +1226,16 @@ export class Grid extends Object_Base {
      */
     mousemove( e ) {
         if( e.buttons == 1 && this.drag.started ) {
-            if( this.drag.type == 'resize' ) {
-                this._column_resize( e );
-            }
-            else if( this.drag.type == 'move' ) {
-                this._column_move( e );
+            switch( this.drag.type ) {
+                case 'resize':
+                    this._column_resize( e );
+                    break;
+                case 'move_column':
+                    this._column_move( e );
+                    break;
+                case 'move_row':
+                    this._row_move( e );
+                    break;
             }
         }
     }
@@ -1111,8 +1249,11 @@ export class Grid extends Object_Base {
                 case 'resize':
                     this._column_resize_end( e );
                     break;
-                case 'move':
+                case 'move_column':
                     this._column_move_end( e );
+                    break;
+                case 'move_row':
+                    this._row_move_end( e );
                     break;
                 default:
                     break;
@@ -1120,17 +1261,6 @@ export class Grid extends Object_Base {
 
             this.drag.started = false;
             this.drag.started = undefined;
-        }
-    }
-
-    /**
-     * grid_complete event handler
-     * @param  {Event} e     - trigger event
-     */
-    grid_complete( e ) {
-
-        if( typeof( this.events.grid_complete ) == 'function' ) {
-            this.events.grid_complete( this.data );
         }
     }
 
@@ -1254,7 +1384,14 @@ export class Grid extends Object_Base {
             //     }
             //     return Number( moment( value, date_format ).format( 'YYYYMMDD' ) );
             // case 'datetime':
-            //     return Number( moment( value, 'YYYY-MM-DD HH:mm:ss' ).format( 'YYYYMMDDHHmmss' ) );
+            //     if( value == '' || value == undefined ) {
+            //         return 0;
+            //     }
+            //     let datetime_format = 'YYYY-MM-DD HH:mm:ss';
+            //     if( value.indexOf( '/' ) != -1 ) {
+            //         datetime_format = 'M/D/YYYY HH:mm:ss';
+            //     }
+            //     return Number( moment( value, datetime_format ).format( 'YYYYMMDDHHmmss' ) );
             default:
                 return String( value );
         }
@@ -1316,7 +1453,7 @@ export class Grid extends Object_Base {
                     break;
             }
 
-            this.event_trigger = event;
+            self.event_trigger = event;
         } );
 
         // Force an enter event to be a blur event and leave the field.
@@ -1547,14 +1684,6 @@ export class Grid extends Object_Base {
     }
 
     /**
-     * Count of the rows of data in the record set.
-     * @return {Number} - record set count
-     */
-    row_count() {
-        return this.data.length;
-    }
-
-    /**
      * Print this grid on paper.
      * Code leveraged from: http://www.trirand.com/blog/?page_id=393/help/improved-print-grid-function
      */
@@ -1627,6 +1756,72 @@ export class Grid extends Object_Base {
 
         //TODO: user feedback alert( "data copied");
     }
+
+    /**
+     * Import and export column settings for this grid.
+     * This function will merge existing sub settings with any settings passed in.
+     * The structure of the settings object is as follows:
+     *
+     * @param  {Object} settings     - Optional. Settings object containing properties for columns.
+     * @return {Object}              - Contains all settings for all column properties.
+     *                                 NOTE: Only returned when no settings object is passed in.
+     *
+     * ie. Combining the following objects would result in the final object below:
+     *
+     * built-in: {                 |    settings: {
+     *    width: {                 |        width: {
+     *        order_number: 150,   |            order_number: 200,
+     *        date: 150,           |            rga_number: 100,
+     *    },                       |        },
+     *    visible: {               |        visible: {
+     *      id: false,             |            po_number: true,
+     *      order_number: true,    |            rga_number: false,
+     *      po_number: false,      |        }
+     *    }                        |    }
+     * }                           |
+     *
+     * final: {
+     *     width: {
+     *         order_number: 200,
+     *         date: 150,
+     *         rga_number: 100,
+     *     },
+     *     visible: {
+     *         id: false,
+     *         order_number: true,
+     *         po_number: true,
+     *         rga_number: false,
+     *     }
+     * }
+     */
+    column_settings( settings ) {
+
+        if( typeof( settings ) == 'undefined' ) {
+            return this.columns;
+        }
+        else {
+            let keys = Object.keys( this.columns );
+
+            for( let key of keys ) {
+                if( typeof( settings[ key ] ) !== 'undefined' ) {
+                    Object.assign( this.columns[ key ], settings[ key ] );
+                }
+            }
+        }
+    }
+
+    /**********************************************************************
+     * server functions
+     **********************************************************************/
+
+    fetch_data( options ) {
+
+        let request_options = Object.assign( {}, this.connection_options, options );
+        this.connection.request( request_options );
+
+    }
+
+
 
     /**********************************************************************
      * Format functions
