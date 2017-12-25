@@ -118,14 +118,14 @@ $font-size: 14px;
 .wsgrid__header_column_resize:hover {
     cursor: col-resize;
 }
-.wsgrid__header_column_move {
+.wsgrid__header_column_move_target {
     height: 100%;
     left: 0;
     position: absolute;
     top: 0;
     width: 25%;
 }
-.wsgrid__header_column_move:hover {
+.wsgrid__header_column_move_target:hover {
     cursor: move;
 }
 #wsgrid__header_column_resize_visual {
@@ -133,6 +133,22 @@ $font-size: 14px;
     position: fixed;
     width: 0;
 }
+#wsgrid__header_row_resize_visual {
+    border: 2px dashed gray;
+    position: fixed;
+    height: 0;
+}
+.wsgrid_header_row_move {
+    width: 100%;
+}
 .wsgrid__multiselect_cell {
     width: 20px;
+}
+.wsgrid__column_row_move_target_header,
+.wsgrid__column_row_move_target {
+    background: linear-gradient(to bottom, #eeeeee 0%,#cccccc 100%);
+    width: 5px;
+}
+.wsgrid__column_row_move_target:hover {
+    cursor: move;
 }
