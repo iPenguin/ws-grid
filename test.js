@@ -26,16 +26,29 @@ let grid = new Grid( {
     events:         {
         click( row, column_name, data ) {
         },
+        load_complete( data ) {
+            let average = 0;
+
+            for( let row of data ) {
+                average += row.age;
+            }
+
+            average = average / data.length;
+
+            average = grid.with_precision( average );
+
+            grid.set_totals_row( {
+                first_name: 'This is a totals row',
+                age:        average,
+            } );
+
+
+        }
     },
     connection_options: {
         type: 'Socket',
         url:  'ws://localhost:1337',
     }
-} );
-
-grid.set_totals_row( {
-    first_name: 'This is a totals row',
-    age:        '45',
 } );
 
 grid.display( [
@@ -95,4 +108,22 @@ filter.onchange = () => {
 let button = document.getElementById( 'toggle-first-name' );
 button.onclick = () => {
     grid.toggle_column( 'first_name' );
+};
+
+let selection_button = document.getElementById( 'show-selection' );
+selection_button.onclick = () => {
+    let rows = grid.get_selected_rows();
+    let text = '';
+
+    for( let i = 0; i < rows.length; i++ ) {
+        let fname = grid.cell_value( 'first_name', rows[ i ] );
+        let lname = grid.cell_value( 'last_name', rows[ i ] );
+
+        text += `${fname} ${lname}\n`;
+    }
+
+    if( rows.length == 0 ) {
+        text += 'No selection';
+    }
+    alert( text );
 };
