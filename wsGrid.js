@@ -5,19 +5,22 @@
  *
  * column_defaults: - An object containing default values for all columns.
  * column_model:    - a list of options that will define how each column displays it's data.
- *     name      - String          - Name of data field passed into grid.
- *     label     - String          - Label to show at the top of the column.
- *     visible   - Boolean         - Is the column visible?
- *     width     - Number          - How wide to make the column, (number only) but this is calculated in pixels.
- *     align     - String          - A string: left, right, or center.
- *     fixed     - Boolean         - When loading always start with the width given.
- *     type      - String/function - The type is used to determine the sorting.
- *                                   Valid values are: text, string, number, date, datetime, time
- *                                   NOTE: you can also assign a function and it will run the custom function.
- *     editable  - Boolean         - Can this column be edited?
- *     frozen    - Boolean         - Is this column locked in place? left or right?
- *     classes   - String          - Custom css classes to apply to the column
- *     format    - String/function - On how to format the data, a function should return a string.
+ *     name        - String          - Name of data field passed into grid.
+ *     label       - String          - Label to show at the top of the column.
+ *     visible     - Boolean         - Is the column visible?
+ *     width       - Number          - How wide to make the column, (number only) but this is calculated in pixels.
+ *     align       - String          - A string: left, right, or center.
+ *     fixed       - Boolean         - When loading always start with the width given.
+ *     type        - String/function - The type is used to determine the sorting.
+ *                                     Valid values are: text, string, number, date, datetime, time
+ *                                     NOTE: you can also assign a function and it will run the custom function.
+ *     editable     - Boolean         - Can this column be edited?
+ *     frozen_left  - Boolean         - Is this column locked in place on the left?
+ *     frozen_right - Boolean         - Is this column locked in place on the left?
+ *     classes      - String          - Custom CSS classes to apply to the column
+ *     format       - String/function - On how to format the data, a function should return a string.
+ *                                      String can be 'date', 'currency', or 'boolean'
+ * column_reorder:                 - Enable reordering of columns using drag and drop.
  * connection:
  *     type      - String          - Type of connection used: 'Ajax' or 'Socket'.
  *     url       - String          - URL used to connect to the server.
@@ -37,9 +40,9 @@
  *     after_edit                            - After the user has edited the data, and the editor has closed.
  *     after_save                            - After the editor has closed and the data has been saved.
  *
- *    before_inline_opened( row, column_name, value, row_data )     - return '' to prevent a dialog opening.
- *    before_inline_closed( row, column_name, value, row_data )     - can prevent the editor from closing and loosing focus.
- *    before_inline_submitted( row, column_name, value, row_data )  - can manipulate the data before it's saved to the local data model.
+ *     before_inline_opened( row, column_name, value, row_data )     - return '' to prevent a dialog opening.
+ *     before_inline_closed( row, column_name, value, row_data )     - can prevent the editor from closing and loosing focus.
+ *     before_inline_submitted( row, column_name, value, row_data )  - can manipulate the data before it's saved to the local data model.
  * filters:         - An object with filtering functions.
  * height:          - Height of grid. Set the height to an empty string to allow the grid to be the height of the data.
  * id:              - ID of DOM element that will contain this grid.
@@ -130,6 +133,12 @@ export class Grid extends Object_Base {
         let all_options = Object.assign( {}, grid_defaults, options );
         this._setup_object( all_options );
 
+        // Make sure the element the user wants is actually in the DOM, if not throw an error the user can figure out.
+        let gridElement = document.getElementById( this.id );
+        if( gridElement == null ) {
+            throw new Error( `Could not find grid element. Is ${this.id} an element in the DOM?` );
+        }
+
         this.drag = {
             started: false,
             type:    undefined,
@@ -144,39 +153,17 @@ export class Grid extends Object_Base {
                 break;
         }
 
-        this.grid_container = document.getElementById( this.id );
-
-        let count = this.column_model.length;
-        this.column_width_info = new Array( count );
-
-        // fill in default values for all column properties so we always have something to work with.
-        for( let i = 0; i < count; i++ ) {
-            this.column_model[ i ] = Object.assign( {}, column_defaults, this.column_model[ i ] );
-        }
+        this.event_trigger = undefined;
 
         this.data = [];
         this.totals_data = undefined;
-
-        // Make sure the element the user wants is actually in the DOM, if not throw an error the user can figure out.
-        let gridElement = document.getElementById( this.id );
-        if( gridElement == null ) {
-            throw new Error( `Could not find grid element. Is ${this.id} an element in the DOM?` );
-        }
 
         this.is_filtered = false;
 
         this._create_lookup_tables( all_options.column_model );
         this._calculate_columns();
 
-        this.grid = this.generate_grid();
-        this.is_filtered = false;
-
-        this.drag = {
-            started: false,
-            type:    undefined,
-        };
-
-        this.event_trigger = undefined;
+        this.grid = this._create_base_table();
 
         this.sort_column = '';
         this.sort_direction = 'asc';
@@ -196,14 +183,112 @@ export class Grid extends Object_Base {
     }
 
     /**
-     * Parse information in the column model so we can do some calculations
-     * for column width and other things.
+     * turn the column model on it's side so we can do property lookups using the column name.
+     * @param  {Object} column_model        - Column model used to create this grid.
+     */
+    _create_lookup_tables( column_model ) {
+        let colCount = column_model.length;
+
+        this.columns = {};
+        this.column_order = [];
+        this.row_order = [];
+
+        // loop through the columns and create a set of lookup tables for all properties.
+        for( let i = 0; i < colCount; i++ ) {
+            // fill in any missing default values.
+            this.column_model[ i ] = Object.assign( {}, column_defaults, column_model[ i ] );
+
+            let keys = Object.keys( column_defaults );
+            let column_name = this.column_model[ i ].name;
+
+            // Keep track of the column order.
+            this.column_order[ i ] = column_name;
+
+            // keep track of all properties by column name.
+            for( let key of keys ) {
+                if( typeof( this.columns[ key ] ) == 'undefined' ) {
+                    this.columns[ key ] = {};
+                }
+
+                this.columns[ key ][ column_name ] = this.column_model[ i ][ key ];
+            }
+        }
+
+        console.log( "columns", this.columns );
+    }
+
+    /**
+     * Create the base table element and the header for the table
+     * based on the column model information.
+     */
+    _create_base_table() {
+        let table_header = this._generate_column_headers();
+
+        let html = `<table class="${wsgrid_table} ${wsgrid_table}_${this.id}">`
+        + `<thead class="${wsgrid_header} ${wsgrid_header}_${this.id}">${table_header}</thead>`
+        + `<tbody class="${wsgrid_body} ${wsgrid_body}_${this.id}"></tbody>`
+        + `<tfoot class="${wsgrid_footer}"></tfoot>`
+        + '</table>';
+
+        // Insert Table
+        document.getElementById( this.id ).innerHTML = html;
+
+        return document.querySelector( `table.${wsgrid_table}_${this.id}` );
+    }
+
+    /**
+     * using all the properties from the grid figure out
+     * what all the widths for all the columns should be
      *
      * Rules for calculating column widths:
      *   1) fixed widths are always the same width. (fixed)
      *   2) all remaining columns are calculated as a percentage of the remaining space.
      *       That percentage is calculated from the default width of the column / the width of all flexable columns.
+     *
+     * @param  {Boolean} [user_set=false]   - If the user changes the column width, don't override
+     *                                        it with variable column size calculations
      */
+    _calculate_columns( user_set = false ) {
+        let count = this.column_model.length;
+
+        let grid_width = document.getElementById( this.id ).offsetWidth;
+        let fixed_width = 0;
+        let flex_width = 0;
+
+        // loop through the columns and gather info
+        for( let i = 0; i < count; i++ ) {
+            let column_name = this.column_order[ i ];
+
+            let isFixed = this.columns.fixed[ column_name ];
+
+            fixed_width += ( isFixed ? this.columns.width[ column_name ] : 0 );
+            flex_width += ( isFixed ? 0 : this.columns.width[ column_name ] );
+        }
+
+        // calculate the widths of flexable columns.
+        let remaining_width = grid_width - fixed_width;
+
+        for( let i = 0; i < count; i++ ) {
+            let column_name = this.column_order[ i ];
+
+            let new_width = this.columns.width[ column_name ];
+
+            if( ! user_set && ! this.columns.fixed[ column_name ] ) {
+
+                let percent = new_width / flex_width;
+                new_width = Math.floor( remaining_width * percent );
+            }
+
+            this.columns.width[ column_name ] = new_width;
+        }
+
+        if( this.overflow ) {
+            this.min_column_width = fixed_width + flex_width;
+        }
+        else {
+            this.min_column_width = 0;
+        }
+    }
 
     /**
      * Mouse down resize event handler, start the resize event.
@@ -306,7 +391,7 @@ export class Grid extends Object_Base {
         e.preventDefault();
 
         let column_name = this.seperator.dataset.column;
-        let next_column = '';
+        let next_column = undefined;
 
         let header_row = this.grid.querySelector( 'thead tr' );
         let children = header_row.children;
@@ -416,138 +501,6 @@ export class Grid extends Object_Base {
     }
 
     /**
-     * turn the column model on it's side so we can do property lookups using the column name.
-     * @param  {Object} column_model        - Column model used to create this grid.
-     */
-    _create_lookup_tables( column_model ) {
-        let colCount = column_model.length;
-
-        this.columns = {};
-        this.column_order = [];
-        this.row_order = [];
-
-        // loop through the columns and create a set of lookup tables for all properties.
-        for( let i = 0; i < colCount; i++ ) {
-            // fill in any missing default values.
-            this.column_model[ i ] = Object.assign( {}, column_defaults, column_model[ i ] );
-
-            let keys = Object.keys( column_defaults );
-            let column_name = this.column_model[ i ].name;
-
-            // Keep track of the column order.
-            this.column_order[ i ] = column_name;
-
-            // keep track of all properties by column name.
-            for( let key of keys ) {
-                if( typeof( this.columns[ key ] ) == 'undefined' ) {
-                    this.columns[ key ] = {};
-                }
-
-                this.columns[ key ][ column_name ] = this.column_model[ i ][ key ];
-            }
-        }
-
-        console.log( "columns", this.columns );
-    }
-
-    /**
-     * using all the properties from the grid figure out
-     * what all the widths for all the columns should be
-     * @param  {Boolean} [user_set=false]   - If the user changes the column width, don't override
-     *                                        it with variable column size calculations
-     */
-    _calculate_columns( user_set = false ) {
-        let count = this.column_model.length;
-
-        let grid_width = document.getElementById( this.id ).offsetWidth;
-        let fixed_width = 0;
-        let flex_width = 0;
-
-        // loop through the columns and gather info
-        for( let i = 0; i < count; i++ ) {
-            let column_name = this.column_order[ i ];
-
-            let isFixed = this.columns.fixed[ column_name ];
-
-            fixed_width += ( isFixed ? this.columns.width[ column_name ] : 0 );
-            flex_width += ( isFixed ? 0 : this.columns.width[ column_name ] );
-        }
-
-        // calculate the widths of flexable columns.
-        let remaining_width = grid_width - fixed_width;
-
-        for( let i = 0; i < count; i++ ) {
-            let column_name = this.column_order[ i ];
-
-            let new_width = this.columns.width[ column_name ];
-
-            if( ! user_set && ! this.columns.fixed[ column_name ] ) {
-
-                let percent = new_width / flex_width;
-                new_width = Math.floor( remaining_width * percent );
-            }
-
-            this.columns.width[ column_name ] = new_width;
-        }
-
-        if( this.overflow ) {
-            this.min_column_width = fixed_width + flex_width;
-        }
-        else {
-            this.min_column_width = 0;
-        }
-    }
-
-    /**
-     * Set a new column width, update the column calculations, and recreat the table.
-     * @param {String} column_name   - Name of the column to update the width for
-     * @param {Number} width         - The new width of the column
-     */
-    set_column_width( column_name, width ) {
-        // set minimum width so we can still resize it
-        // and the column doesn't completely disappear.
-        if( width < 2 ) {
-            width = 2;
-        }
-
-        this.columns.width[ column_name ] = width;
-        this._calculate_columns( true );
-        this.refresh();
-    }
-
-    set_row_position( row_id, previous_row ) {
-        let row_data = this.data[ row_id ];
-        this.data.splice( row_id, 1 );
-        this.data.splice( previous_row, 0, row_data );
-
-        let e = new Event( 'row.moved', { bubbles: true } );
-        e.data = {
-            row:       row_id,
-            previous:  previous_row,
-        };
-        this.grid.dispatchEvent( e );
-
-        this.refresh();
-    }
-
-    /**
-     * Generate the shell of the grid from scratch
-     */
-    generate_grid() {
-        let table_header = this._generate_column_headers();
-
-        let html = `<table class="${wsgrid_table} ${wsgrid_table}_${this.id}">`
-            + `<thead class="${wsgrid_header} ${wsgrid_header}_${this.id}">${table_header}</thead>`
-            + `<tbody class="${wsgrid_body} ${wsgrid_body}_${this.id}"></tbody>`
-            + `<tfoot class="${wsgrid_footer}"></tfoot>`
-            + '</table>';
-
-        this.grid_container.innerHTML = html;
-
-        return document.querySelector( `table.${wsgrid_table}_${this.id}` );
-    }
-
-    /**
      * Fill the grid with the given data and generate a table for display.
      * @param  {Array} data - Array of objects containing data in the form key: value
      */
@@ -565,10 +518,6 @@ export class Grid extends Object_Base {
      * @return {String}         - the row data as a string of HTML
      */
     _generate_rows() {
-
-        if( typeof( this.events.data_loaded ) == 'function' ) {
-            this.events.data_loaded( this.data );
-        }
 
         let row_html = '';
         let count = this.data.length;
@@ -594,18 +543,16 @@ export class Grid extends Object_Base {
             row_html += this._generate_row( i, this.data[ i ], '', classes );
         }
 
-        //TODO: move outside of this function...
-        let event = document.createEvent( 'HTMLEvents' );
-        event.initEvent( 'load_complete', true, true );
-        this.grid.dispatchEvent( event );
-
         return row_html;
     }
 
     /**
-     * Generate the html for the given row of data.
-     * @param  {[type]} row      [description]
-     * @param  {[type]} rowClass [description]
+     * Generate the HTML for the given record_id.
+     * @param  {Number} record_id      - Id of the record to generate HTML for.
+     * @param  {Object} data           - All key, value pairs to generate HTML for.
+     * @param  {String} row_classes    - List of classes to add to the row.
+     * @param  {String} column_classes - List of classes to add to each column
+     * @return {String}                - All the HTML for this row in a string.
      */
     _generate_row( record_id, data, row_classes = '', column_classes = '' ) {
         /*********************************************************************************
@@ -671,6 +618,23 @@ export class Grid extends Object_Base {
     }
 
     /**
+     * Set a new column width, update the column calculations, and recreat the table.
+     * @param {String} column_name   - Name of the column to update the width for
+     * @param {Number} width         - The new width of the column
+     */
+    set_column_width( column_name, width ) {
+        // set minimum width so we can still resize it
+        // and the column doesn't completely disappear.
+        if( width < 2 ) {
+            width = 2;
+        }
+
+        this.columns.width[ column_name ] = width;
+        this._calculate_columns( true );
+        this.refresh();
+    }
+
+    /**
      * Move the column column_name before next_column.
      * If no column name is given or it is undefined places the column at the end of the grid.
      *
@@ -685,6 +649,28 @@ export class Grid extends Object_Base {
         e.data = {
             column: column_name,
             next:   next_element,
+        };
+        this.grid.dispatchEvent( e );
+
+        this.refresh();
+    }
+
+    /**
+     * Move the row row_id after previous_row.
+     * If no previous_row is given or it is undefined places the row at the end of the grid.
+     *
+     * @param {Number} row_id         - row to move
+     * @param {Number} previous_row   - place row_id after previous_row, if it exists or at the end of the grid.
+     */
+    set_row_position( row_id, previous_row ) {
+        let row_data = this.data[ row_id ];
+        this.data.splice( row_id, 1 );
+        this.data.splice( previous_row, 0, row_data );
+
+        let e = new Event( 'row.moved', { bubbles: true } );
+        e.data = {
+            row:       row_id,
+            previous:  previous_row,
         };
         this.grid.dispatchEvent( e );
 
@@ -980,6 +966,7 @@ export class Grid extends Object_Base {
      * @param {Object} record  - a Javascript object containing keys matching the columns
      */
     append_rows( records ) {
+
         //change data in place.
         this.data.splice( this.data.length, 0, ...records );
 
@@ -1005,14 +992,14 @@ export class Grid extends Object_Base {
      * Count of the rows of data in the record set.
      * @return {Number} - record set count
      */
-    row_count() {
+    count() {
         return this.data.length;
     }
 
     /**
      * Getter/setter for the value of a given cell.
      * @param  {String} column_name - Name of the column to get the data from
-     * @param  {Number} rowId      - record id number.
+     * @param  {Number} row_id     - record id number.
      * @param  {Mixed}  value      - If setting the value of a cell, this is the value to set.
      * @return {Mixed}             - If getting the value of a cell, this is the value returned.
      */
@@ -1022,7 +1009,7 @@ export class Grid extends Object_Base {
             return this.data[ row_id ][ column_name ];
         }
         else {
-            let old_value = this.data[ rowId ][ column_name ];
+            let old_value = this.data[ row_id ][ column_name ];
 
             if( old_value == value ) {
                 return;
@@ -1081,14 +1068,14 @@ export class Grid extends Object_Base {
     }
 
     /**
-     * Wrapper for showColumn( column_name, false );
+     * Wrapper for show_column( column_name, false );
      */
     hide_column( column_name ) {
         this.show_column( column_name, false );
     }
 
     /**
-     * Wrapper for showColumn( column_name, ! state );
+     * Wrapper for show_column( column_name, ! state );
      */
     toggle_column( column_name ) {
         let newState = ! ( this.columns.visible[ column_name ] );
@@ -1109,18 +1096,18 @@ export class Grid extends Object_Base {
      *    column_name - Name of the column clicked on.
      *    row_data    - data object for the row clicked on.
      */
-    click( e ) {
-        let classList = e.target.classList;
+    click( event ) {
+        let classList = event.target.classList;
 
         if( this.drag.started ) {
             return;
         }
 
         if( classList.contains( `${wsgrid_header}_column` ) ) {
-            this.header_click( e );
+            this.header_click( event );
         }
         else if( classList.contains( `${wsgrid_multiselect}_header` ) ) {
-            this._multiselect_header_checked( e.target.checked );
+            this._multiselect_header_checked( event.target.checked );
         }
         else if( classList.contains( `${wsgrid_cell}` ) ) {
             let selected = this.grid.getElementsByClassName( 'selected' );
@@ -1129,13 +1116,13 @@ export class Grid extends Object_Base {
                 selected[ i ].classList.remove( 'selected' );
             }
 
-            e.target.classList.add( 'selected' );
+            event.target.classList.add( 'selected' );
 
-            let row = e.target.dataset.recordid;
-            let column = e.target.dataset.column;
+            let row = event.target.dataset.recordid;
+            let column = event.target.dataset.column;
 
             if( typeof( this.events.click ) == 'function' ) {
-                this.events.click( row, column, this.data[ row ], e );
+                this.events.click( row, column, this.data[ row ], event );
             }
         }
     }
@@ -1148,8 +1135,8 @@ export class Grid extends Object_Base {
      *    column_name - Name of the column clicked on.
      *    row_data    - data object for the row clicked on.
      */
-    dblclick( e ) {
-        let classList = e.target.classList;
+    dblclick( event ) {
+        let classList = event.target.classList;
 
         if( this.drag.started ) {
             return;
@@ -1157,15 +1144,15 @@ export class Grid extends Object_Base {
 
 
         if( classList.contains( `${wsgrid_cell}` ) ) {
-            let row = Number( e.target.dataset.recordid );
-            let column_name = e.target.dataset.column;
+            let row = Number( event.target.dataset.recordid );
+            let column_name = event.target.dataset.column;
 
             // only call the user defined function if it exists.
             if( typeof( this.events.dblclick ) == 'function' ) {
-                this.events.dblclick( row, column_name, this.data[ row ], e );
+                this.events.dblclick( row, column_name, this.data[ row ], event );
             }
 
-            if( ! e.defaultPrevented ) {
+            if( ! event.defaultPrevented ) {
                 // If this column is editable create an editor
                 // for the user to change the data.
                 if( this.columns.visible[ column_name ]
@@ -1178,10 +1165,10 @@ export class Grid extends Object_Base {
                     }
 
                     if( typeof( this.events.before_edit ) !== 'undefined' ) {
-                        this.events.before_edit( row, column_name, this.data[ row ], e );
+                        this.events.before_edit( row, column_name, this.data[ row ], event );
                     }
 
-                    if( ! e.defaultPrevented ) {
+                    if( ! event.defaultPrevented ) {
                         this._inline_editor( event.target, properties );
                     }
                 }
@@ -1193,7 +1180,7 @@ export class Grid extends Object_Base {
      * Resize event, recalculate the size of the grid and re-draw it.
      * @param  {Event} e     - Trigger event for resizing
      */
-    resize( e ) {
+    resize( event ) {
         this._calculate_columns();
         this.refresh();
     }
@@ -1202,39 +1189,39 @@ export class Grid extends Object_Base {
      * Mouse down event handler
      * @param  {Event} e     - trigger event
      */
-    mousedown( e ) {
-        let classList = e.target.classList;
+    mousedown( event ) {
+        let classList = event.target.classList;
         if( classList.contains( `${wsgrid_header}_column_resize` ) ) {
             this.drag.started = true;
             this.drag.type = 'resize';
-            this._column_resize_start( e );
+            this._column_resize_start( event );
         }
         else if( classList.contains( `${wsgrid_header}_column_move_target` ) ) {
             this.drag.started = true;
             this.drag.type = 'move_column';
-            this._column_move_start( e );
+            this._column_move_start( event );
         }
         else if( classList.contains( `${wsgrid_column}_row_move_target` ) ) {
             this.drag.started = true;
             this.drag.type = 'move_row';
-            this._row_move_start( e );
+            this._row_move_start( event );
         }
     }
     /**
      * Mouse move event handler
      * @param  {Event} e     - trigger event
      */
-    mousemove( e ) {
-        if( e.buttons == 1 && this.drag.started ) {
+    mousemove( event ) {
+        if( event.buttons == 1 && this.drag.started ) {
             switch( this.drag.type ) {
                 case 'resize':
-                    this._column_resize( e );
+                    this._column_resize( event );
                     break;
                 case 'move_column':
-                    this._column_move( e );
+                    this._column_move( event );
                     break;
                 case 'move_row':
-                    this._row_move( e );
+                    this._row_move( event );
                     break;
             }
         }
@@ -1243,17 +1230,17 @@ export class Grid extends Object_Base {
      * Mouse up event handler
      * @param  {Event} e     - trigger event
      */
-    mouseup( e ) {
+    mouseup( event ) {
         if( this.drag.started ) {
             switch( this.drag.type ) {
                 case 'resize':
-                    this._column_resize_end( e );
+                    this._column_resize_end( event );
                     break;
                 case 'move_column':
-                    this._column_move_end( e );
+                    this._column_move_end( event );
                     break;
                 case 'move_row':
-                    this._row_move_end( e );
+                    this._row_move_end( event );
                     break;
                 default:
                     break;
@@ -1286,9 +1273,13 @@ export class Grid extends Object_Base {
      */
     data_changed( event ) {
         if( typeof( this.events.data_changed ) == 'function' ) {
-            this.events.data_changed( e.change );
+            this.events.data_changed( event.change );
         }
     }
+
+    /***************
+     * End Events
+     ***************/
 
     /**
      * This event fires when the header columns are clicked
@@ -1308,7 +1299,6 @@ export class Grid extends Object_Base {
             this.events.header_click( column_name );
         }
         else {
-
             this.data.sort( ( a, b ) => {
                 return this._basic_sorting( column_name, a, b );
             } );
@@ -1398,13 +1388,14 @@ export class Grid extends Object_Base {
     }
 
     /**
-     * Generate the inline editor dialogs.
-     * @param  {HTMLElment} cell       - HTML Elment of the table cell.
-     * @param  {[type]} properties
-     * @return {[type]}            [description]
+     * Create an inline editor for the given cell.
+     *
+     * @param  {HTMLElement} cell       - The HTML Element for this cell.
+     * @param  {Object}      properties - The list of properties for this column.
      */
     _inline_editor( cell, properties ) {
         let editor = '';
+
         let cell_value = this.data[ cell.dataset.recordid ][ properties.name ];
 
         // Only open an editor if one isn't already open.
@@ -1530,9 +1521,8 @@ export class Grid extends Object_Base {
     /**
      * Close event for the inline editor.
      * The user can override it by creating an before_inline_closed event and returning false;
-     * @param  {Event} event   -
-     * @param
-     * @param
+     * @param  {Event} event   - event that triggered this function.
+     * @param  {HTMLObject}    - HTML object of the cell we're editing.
      * @return {Boolean}       - did the editor close?
      */
     _close_editor( event, cell ) {
@@ -1714,8 +1704,8 @@ export class Grid extends Object_Base {
     }
 
     /**
-     * Copy the data to the clipboard in a form that can be pasted into a
-     * spreadsheet.
+     * Copy the data, in the grid, to the clipboard in a form that can be
+     * pasted into a spreadsheet.
      */
     copy() {
 
@@ -1823,8 +1813,6 @@ export class Grid extends Object_Base {
 
     }
 
-
-
     /**********************************************************************
      * Format functions
      **********************************************************************/
@@ -1844,36 +1832,36 @@ export class Grid extends Object_Base {
 
     /**
      * Format a given value as a date in the form of M/D/YYYY
-     * @param  {String} cellValue    - Date in form or YYYY-MM-DD or M/D/YYYY
+     * @param  {String} cell_value    - Date in form or YYYY-MM-DD or M/D/YYYY
      * @return {String}              - Formatted date of M/D/YYYY
      */
-    format_date( cellValue ) {
-        if( cellValue == '' || cellValue == undefined ) {
+    format_date( cell_value ) {
+        if( cell_value == '' || cell_value == undefined ) {
             return '';
         }
 
         let format = 'YYYY-MM-DD';
 
-        if( cellValue.indexOf( '/' ) >= 0 ) {
+        if( cell_value.indexOf( '/' ) >= 0 ) {
             format = 'M/D/YYYY';
         }
 
-        let date = moment( cellValue, format );
+        let date = moment( cell_value, format );
         return date.format( 'M/D/YYYY' );
     }
 
     /**
      * format the data as currency, a custom user function can override the default abilty.
-     * @param  {String} cellValue     - Value to format
+     * @param  {String} cell_value     - Value to format
      * @return {String}               - Formatted value
      */
-    format_currency( cellValue ) {
+    format_currency( cell_value ) {
         // Check for a user defined currency function first.
         if( typeof( this.currency ) == 'function' ) {
-            return this.currency( cellValue );
+            return this.currency( cell_value );
         }
 
-        let value = this.from_currency( cellValue );
+        let value = this.from_currency( cell_value );
         return this.to_currency( value );
     }
 
