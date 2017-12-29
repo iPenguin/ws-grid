@@ -51,6 +51,7 @@
  *
  **/
 
+import { Number_Utility } from './number_utility.js';
 import { Object_Base } from './object_base.js';
 import { Socket } from './socket.js';
 import { Ajax } from './ajax.js';
@@ -213,8 +214,6 @@ export class Grid extends Object_Base {
                 this.columns[ key ][ column_name ] = this.column_model[ i ][ key ];
             }
         }
-
-        console.log( "columns", this.columns );
     }
 
     /**
@@ -982,7 +981,7 @@ export class Grid extends Object_Base {
 
         for( let i = 0; i < rows.length; i++ ) {
             let row = rows[ i ];
-            this.data[ row ].splice( row, 1 );
+            this.data.splice( row, 1 );
         }
 
         this.refresh();
@@ -1051,6 +1050,23 @@ export class Grid extends Object_Base {
         }
 
         return records;
+    }
+
+    /**
+     * Return the row Data for the given rows.
+     * If no row is selected return an empty array.
+     * @param  {Array}  rows   - list of rows to get data for.
+     * @return {Array}         - Array of row data.
+     */
+    get_row_data( rows ) {
+
+        let record_data = [];
+
+        for( let i = 0; i < rows.length; i++ ) {
+            record_data.push( this.data[ rows[ i ] ] );
+        }
+
+        return record_data;
     }
 
     /**
@@ -1141,7 +1157,6 @@ export class Grid extends Object_Base {
         if( this.drag.started ) {
             return;
         }
-
 
         if( classList.contains( `${wsgrid_cell}` ) ) {
             let row = Number( event.target.dataset.recordid );
@@ -1362,26 +1377,26 @@ export class Grid extends Object_Base {
             case 'string':
                 return String( value ).toLowerCase();
             case 'number':
-                value = this.from_currency( value );
+                value = Number_Utility.from_currency( value );
                 return Number( value );
-            // case 'date':
-            //     if( value == '' || value == undefined ) {
-            //         return 0;
-            //     }
-            //     let date_format = 'YYYY-MM-DD';
-            //     if( value.indexOf( '/' ) != -1 ) {
-            //         date_format = 'M/D/YYYY';
-            //     }
-            //     return Number( moment( value, date_format ).format( 'YYYYMMDD' ) );
-            // case 'datetime':
-            //     if( value == '' || value == undefined ) {
-            //         return 0;
-            //     }
-            //     let datetime_format = 'YYYY-MM-DD HH:mm:ss';
-            //     if( value.indexOf( '/' ) != -1 ) {
-            //         datetime_format = 'M/D/YYYY HH:mm:ss';
-            //     }
-            //     return Number( moment( value, datetime_format ).format( 'YYYYMMDDHHmmss' ) );
+            case 'date':
+                if( value == '' || value == undefined ) {
+                    return 0;
+                }
+                let date_format = 'YYYY-MM-DD';
+                if( value.indexOf( '/' ) != -1 ) {
+                    date_format = 'M/D/YYYY';
+                }
+                return Number( moment( value, date_format ).format( 'YYYYMMDD' ) );
+            case 'datetime':
+                if( value == '' || value == undefined ) {
+                    return 0;
+                }
+                let datetime_format = 'YYYY-MM-DD HH:mm:ss';
+                if( value.indexOf( '/' ) != -1 ) {
+                    datetime_format = 'M/D/YYYY HH:mm:ss';
+                }
+                return Number( moment( value, datetime_format ).format( 'YYYYMMDDHHmmss' ) );
             default:
                 return String( value );
         }
@@ -1406,7 +1421,7 @@ export class Grid extends Object_Base {
         let value = convert_html_entities( String( cell_value ) );
 
         if( properties.type == 'number' ) {
-            value = this.from_currency( value );
+            value = Number_Utility.from_currency( value );
         }
 
         let checked = '';
@@ -1558,7 +1573,6 @@ export class Grid extends Object_Base {
         }
 
         cell.innerHTML = new_value;
-
 
         let old_value = cell.dataset.oldvalue;
 
@@ -1819,11 +1833,11 @@ export class Grid extends Object_Base {
 
     /**
      * Format a given value with a 'X' or ''
-     * @param  {String} cellValue    - Value to be formatted: 1 or 0
+     * @param  {String} cell_value   - Value to be formatted: 1 or 0
      * @return {String}              - Formatted string
      */
-    format_boolean( cellValue ) {
-        if( Number( cellValue ) == 1 ) {
+    format_boolean( cell_value ) {
+        if( Number( cell_value ) == 1 ) {
             return "X";
         }
 
@@ -1861,96 +1875,7 @@ export class Grid extends Object_Base {
             return this.currency( cell_value );
         }
 
-        let value = this.from_currency( cell_value );
-        return this.to_currency( value );
-    }
-
-    /**
-     * Convert a dollar amount to a simple number.
-     * @param  {String} string       - Currency formatted string
-     * @return {Number}              - amount as a number
-     */
-    from_currency( string ) {
-
-        if( typeof( string ) == 'string' ) {
-            if( string.indexOf( '$' ) != -1 ) {
-                string = string.replace( '$', '' );
-            }
-            if( string.indexOf( ',' ) != -1 ) {
-                string = string.replace( ',', '' );
-            }
-
-            // make it negative
-            if( string.indexOf( '(' ) != -1 ) {
-                string = string.replace( '(', '-' );
-                string = string.replace( ')', '' );
-            }
-        }
-
-        return Number( string );
-    }
-
-    /**
-     * Convert a number to a dollar amount string.
-     * TODO: add thousands seperator
-     *
-     * @param  {Number/String} amount  - value that we want to format as an amount as currecy.
-     * @return {String}                - Amount with symbols as string.
-     */
-    to_currency( amount ) {
-        amount = this.with_precision( amount, 2, true );
-
-        if( typeof( amount ) == 'number' ) {
-            let isNegative = false;
-
-            if( amount < 0 ) {
-                amount = Math.abs( amount );
-                isNegative = true;
-            }
-            amount = ( isNegative == true ? `($${amount})` : `$${amount}` );
-        }
-        else if( typeof( amount ) == 'string' ) {
-            amount = this.with_precision( amount, 2, true );
-            let floatAmount = Number( amount );
-
-            let isNegative = false;
-
-            if( floatAmount < 0 ) {
-                amount = amount.replace( '-', '' );
-                isNegative = true;
-            }
-
-            if( amount.indexOf( '$' ) == -1 ) {
-                amount = ( isNegative == true ? `($${amount})` : `$${amount}` );
-            }
-        }
-
-        return amount;
-    }
-
-    /**
-     * If there isn't enough precision in the number add it,
-     * but don't truncate if there is more then the minimum precision,
-     * unless the limitPrecision flag is set.
-     *
-     * @retval stirng
-     **/
-    with_precision( number, places = 2, limitPrecision = false ) {
-        let numberString = String( number );
-        number = Number( number );
-
-        let newVal = '';
-        let index = numberString.indexOf( '.' );
-
-        index++; //index is zero based, correct for position in string.
-
-        if( ( numberString.length - index ) > places ) {
-            newVal = Math.round( number * Math.pow( 10, places ), places ) / Math.pow( 10, places );
-        }
-        else {
-            newVal = number;
-        }
-
-        return newVal.toFixed( places );
+        let value = Number_Utility.from_currency( cell_value );
+        return Number_Utility.to_currency( value );
     }
 };
