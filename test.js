@@ -1,6 +1,7 @@
 /**
  * This file contains a test implementation of the wsGrid class.
  */
+import {Number_Utility} from './number_utility.js';
 import {Grid} from './wsGrid.js';
 
 let columns = [
@@ -35,7 +36,7 @@ let grid = new Grid( {
 
             average = average / data.length;
 
-            average = grid.with_precision( average );
+            average = Number_Utility.with_precision( average );
 
             grid.set_totals_row( {
                 first_name: 'This is a totals row',
