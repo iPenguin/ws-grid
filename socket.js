@@ -4,7 +4,22 @@
  *
  *
  */
-import { Connection, CreateConnection } from './connection.js';
+import { Connection } from './connection.js';
+
+/**
+ * Generate a simple random string to identify the request/response.
+ * Function borrowed from: https://stackoverflow.com/a/1349426/7082336
+ */
+function make_id() {
+    let text = "";
+    let possible = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+
+    for( let i = 0; i < 8; i++ ) {
+        text += possible.charAt( Math.floor( Math.random() * possible.length ) );
+    }
+    return text;
+}
+
 
 export class Socket extends Connection {
     constructor( options = {} ) {
@@ -13,6 +28,8 @@ export class Socket extends Connection {
         if( typeof( options.url ) == 'undefined' || options.url == '' ) {
             throw new Error( "Socket: missing required url" );
         }
+
+        this.type = 'socket';
 
         this.is_connected = new Promise( ( resolve, reject ) => {
             this.socket = new WebSocket( options.url );
@@ -34,13 +51,16 @@ export class Socket extends Connection {
      */
     send( data ) {
         this.is_connected.then( () => {
-            let send_data = '';
-            if( typeof( data ) == 'object' ) {
-                send_data = JSON.stringify( data );
+
+            if( typeof( data ) !== 'object' ) {
+                data = {
+                    data,
+                };
             }
-            else {
-                send_data = data;
-            }
+
+            data.call_id = make_id();
+
+            let send_data = JSON.stringify( data );
             this.socket.send( send_data );
         } );
     }
@@ -77,5 +97,3 @@ export class Socket extends Connection {
         } );
     }
 }
-
-CreateConnection.register( 'Socket', Socket );

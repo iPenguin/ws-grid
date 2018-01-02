@@ -2,11 +2,13 @@
  *
  */
 
-import { Connection, CreateConnection } from './connection.js';
+import { Connection } from './connection.js';
 
 export class Ajax extends Connection {
     constructor( options = {} ) {
         this.super( options );
+
+        this.type = 'ajax';
     }
 
     send() {
@@ -23,5 +25,3 @@ export class Ajax extends Connection {
     }
 
 }
-
-CreateConnection.register( 'Ajax', Ajax );

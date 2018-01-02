@@ -6,7 +6,7 @@
 
 export class Connection {
     constructor( options ) {
-
+        this._type = '';
     }
 
     close() {
@@ -25,39 +25,11 @@ export class Connection {
     receive() {
 
     }
-}
 
-/**
- * Factory class for creating connection objects.
- * There are two types by default. WebSocket, and AJAX.
- *
- * All types of connections should implement the
- * virtual Connection class, by extending it.
- */
-class ConnectionFactor {
-    constructor() {
-        this._types = {};
+    get type() {
+        return this._type;
     }
-
-    /**
-     * Register a new Object type with this factory.
-     * @param  {String} type     - A descriptive name for this object.
-     * @param  {Object} classObj - The actual class that needs to be constructed.
-     */
-    register( type, classObj ) {
-        this._types[ type ] = classObj;
-    }
-
-    /**
-     * Create a connection of 'type', with options applied to it.
-     * @param  {String} type    - Descriptive name for the object type we want to instantiate.
-     * @param  {Object} options - Object of options used to create the object.
-     * @return {Object}         - An instance of the class 'type'.
-     */
-    create_connection( options ) {
-        let Conn = this._types[ options.type ];
-        return new Conn( options );
+    set type( value ) {
+        this._type = value;
     }
 }
-
-export let CreateConnection = new ConnectionFactor();
