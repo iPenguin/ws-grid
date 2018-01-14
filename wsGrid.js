@@ -12,8 +12,9 @@
  *     align       - String          - A string: left, right, or center.
  *     fixed       - Boolean         - When loading always start with the width given.
  *     type        - String/function - The type is used to determine the sorting.
- *                                     Valid values are: text, string, number, date, datetime, time
+ *                                     Valid values are: text, string, number, date, datetime, time, dropdown
  *                                     NOTE: you can also assign a function and it will run the custom function.
+ *     options     - Object          - Key/value pairs for a type: "dropdown" column.
  *     editable     - Boolean         - Can this column be edited?
  *     frozen_left  - Boolean         - Is this column locked in place on the left?
  *     frozen_right - Boolean         - Is this column locked in place on the left?
@@ -83,6 +84,7 @@ let column_defaults = {
     frozen_right: false,
     classes:      '',
     style:        '',
+    options:      {},
     format:       ( value ) => {
         return value;
     }
@@ -634,7 +636,12 @@ export class Grid extends Object_Base {
 
                 // if there is data to display figure out how to display it.
                 if( typeof( data[ column_name ] ) !== 'undefined' ) {
-                    if( typeof( this.columns.format[ column_name ] ) == 'string' ) {
+
+                    if( this.columns.type[ column_name ] == 'dropdown' ) {
+                        let val = data[ column_name ];
+                        value = this.columns.options[ column_name ][ val ];
+                    }
+                    else if( typeof( this.columns.format[ column_name ] ) == 'string' ) {
                         let formatType = this.columns.format[ column_name ];
                         value = this[ `format_${formatType.toLowerCase()}` ]( data[ column_name ] );
                     }
@@ -1468,9 +1475,26 @@ export class Grid extends Object_Base {
             }
         }
 
-        editor = `<input type="${properties.type}" class="${wsgrid_editor}_main_editor"`
-                + `style="width:calc( 100% - 10px );text-align:${properties.align}" `
-                + `value=\"${value}\" ${checked}>`;
+
+        if( properties.type == 'dropdown' ) {
+            let options = '';
+            let keys = Object.keys( properties.options );
+            for( let k in keys ) {
+                let key = keys[ k ];
+
+                let selected = '';
+                if( value == key ) {
+                    selected = 'selected';
+                }
+                options += `<option value="${key}" ${selected}>${properties.options[ key ]}</option>`;
+            }
+            editor = `<select class="${wsgrid_editor}_main_editor">${options}</select>`;
+        }
+        else {
+            editor = `<input type="${properties.type}" class="${wsgrid_editor}_main_editor"`
+                    + `style="width:calc( 100% - 10px );text-align:${properties.align}" `
+                    + `value=\"${value}\" ${checked}>`;
+        }
 
         cell.dataset.oldvalue = cell.innerHTML;
         cell.innerHTML = editor;
@@ -1597,6 +1621,9 @@ export class Grid extends Object_Base {
         this.data[ row_id ][ column_name ] = new_value;
 
         let formatType = typeof( this.columns.format[ column_name ] );
+        if( this.columns.type[ column_name ] == 'dropdown' ) {
+            new_value = this.columns.options[ column_name ][ new_value ];
+        }
         if( formatType == 'string' ) {
             new_value = this[ `format_${this.columns.format[ column_name ].toLowerCase()}` ]( new_value );
         }
