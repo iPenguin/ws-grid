@@ -95,6 +95,7 @@ $font-size: 14px;
 }
 .wsgrid__header_column {
     position: relative;
+    white-space: nowrap;
 }
 .wsgrid__header_sort {
     position: absolute;
