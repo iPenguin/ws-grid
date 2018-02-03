@@ -28,7 +28,8 @@
  *     url       - String          - URL used to connect to the server.
  *                                   examples: '/api/grid/data', 'wss://example.com/api/grid/data'
  * currency:        - Override function for how to format numbers as currency.
- * events:          - an object containing functions as elements.
+ * events:          - an object containing user orverride event functions as elements.
+ *                    all events are executed with 'this' set to the current grid.
  *     click( row, column, rowData )         - Click event for a given cell.
  *     dblclick( row, column_name, rowData ) - Double click event for cells, the grid passes in row,
  *                                             column name, and row data.
@@ -84,6 +85,7 @@ let column_defaults = {
     frozen_right: false,
     classes:      '',
     style:        '',
+    tooltip:      '',
     options:      {},
     format:       ( value ) => {
         return value;
@@ -676,9 +678,16 @@ export class Grid extends Object_Base {
             let user_styles = this._generate_user_styles( record_id, column_name, data );
             // }
 
+            let tooltip = '';
+            if( this.columns.tooltip[ column_name ] !== ''
+                && column_type == 'th' ) {
+                tooltip = ` title="${this.columns.tooltip[ column_name ]}"`;
+            }
+
             let alignment = this.columns.align[ column_name ];
             row_html += `<${column_type} class="${wsgrid_column} ${wsgrid_cell} ${column_classes} ${wsgrid_column}_${column_name}`
                         + ` ${user_classes}"`
+                        + tooltip
                         + ` data-recordid='${record_id}' data-column='${column_name}' data-columnid="${column}"`
                         + ` style="${display} ${frozen_style} width:${this.columns.width[ column_name ]}px;text-align:${alignment};${user_styles};">`
                         + `${value}</${column_type}>`;
