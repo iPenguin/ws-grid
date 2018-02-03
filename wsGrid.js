@@ -1186,7 +1186,7 @@ export class Grid extends Object_Base {
             let column = event.target.dataset.column;
 
             if( typeof( this.events.click ) == 'function' ) {
-                this.events.click( row, column, this.data[ row ], event );
+                this.events.click.call( this, row, column, this.data[ row ], event );
             }
         }
     }
@@ -1212,7 +1212,7 @@ export class Grid extends Object_Base {
 
             // only call the user defined function if it exists.
             if( typeof( this.events.dblclick ) == 'function' ) {
-                this.events.dblclick( row, column_name, this.data[ row ], event );
+                this.events.dblclick.call( this, row, column_name, this.data[ row ], event );
             }
 
             if( ! event.defaultPrevented ) {
@@ -1228,7 +1228,7 @@ export class Grid extends Object_Base {
                     }
 
                     if( typeof( this.events.before_edit ) !== 'undefined' ) {
-                        this.events.before_edit( row, column_name, this.data[ row ], event );
+                        this.events.before_edit.call( this, row, column_name, this.data[ row ], event );
                     }
 
                     if( ! event.defaultPrevented ) {
@@ -1322,7 +1322,7 @@ export class Grid extends Object_Base {
      */
     load_complete( event ) {
         if( typeof( this.events.load_complete ) == 'function' ) {
-            this.events.load_complete( this.data );
+            this.events.load_complete.call( this, this.data );
         }
     }
 
@@ -1336,13 +1336,13 @@ export class Grid extends Object_Base {
      */
     data_changed( event ) {
         if( typeof( this.events.data_changed ) == 'function' ) {
-            this.events.data_changed( event );
+            this.events.data_changed.call( this, event );
         }
     }
 
     row_moved( event ) {
         if( typeof( this.events.row_moved ) == 'function' ) {
-            this.events.row_moved( event );
+            this.events.row_moved.call( this, event );
         }
     }
 
@@ -1365,7 +1365,7 @@ export class Grid extends Object_Base {
 
         // only call the user defined function if it exists.
         if( typeof( this.events.header_click ) == 'function' ) {
-            this.events.header_click( column_name );
+            this.events.header_click.call( this, column_name );
         }
         else {
             this.data.sort( ( a, b ) => {
@@ -1613,7 +1613,7 @@ export class Grid extends Object_Base {
      */
     _close_editor( event, cell ) {
         if( typeof( this.events.before_inline_closed ) == 'function' ) {
-            if( ! this.events.before_inline_closed( row, column, value, row_data ) ) {
+            if( ! this.events.before_inline_closed.call( this, row, column, value, row_data ) ) {
                 return false;
             }
         }
