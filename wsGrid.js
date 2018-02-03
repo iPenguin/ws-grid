@@ -796,6 +796,7 @@ export class Grid extends Object_Base {
         let fixed_position = 0;
         let frozen_count = 0;
         let col_count = 1;
+        let fix_columns = 0;
 
         if( this.columns.frozen_left[ column_name ] ) {
 
@@ -822,9 +823,12 @@ export class Grid extends Object_Base {
                 }
                 else if( this.columns.visible[ current_column ] ) {
                     col_count++;
-                    fixed_position += this.columns.width[ current_column ] + 6 + i;
+                    fixed_position += this.columns.width[ current_column ];
+                    fix_columns++;
                 }
             }
+
+            fixed_position += ( fix_columns * 6 ) + fix_columns;
 
             let border = '';
             if( col_count == frozen_count ) {
@@ -850,10 +854,12 @@ export class Grid extends Object_Base {
                 }
                 else if( this.columns.visible[ current_column ] ) {
                     col_count++;
-                    let etc = this.column_order.length - i;
-                    fixed_position += this.columns.width[ current_column ] + 5 + etc;
+                    fixed_position += this.columns.width[ current_column ];
+                    fix_columns++;
                 }
             }
+
+            fixed_position += ( fix_columns * 6 ) + ( ( fix_columns == 0 ? 1 : fix_columns ) - 1 );
 
             let border = '';
             if( col_count == frozen_count ) {
