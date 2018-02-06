@@ -680,7 +680,7 @@ export class Grid extends Object_Base {
 
             let tooltip = '';
             if( this.columns.tooltip[ column_name ] !== ''
-                && column_type == 'th' ) {
+                && is_header ) {
                 tooltip = ` title="${this.columns.tooltip[ column_name ]}"`;
             }
 
