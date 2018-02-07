@@ -105,6 +105,7 @@ let grid_defaults = {
     column_sort:        true,
     row_reorder:        false,
     multi_select:       false,
+    grouping:           [],
     connection_type:    'socket',
     connection_options: {
         url: '',
@@ -167,7 +168,7 @@ export class Grid extends Object_Base {
 
         this.is_filtered = false;
 
-        this._create_lookup_tables( all_options.column_model );
+        this._create_lookup_tables( all_options.column_model, all_options.grouping );
         this._calculate_columns();
 
         this.grid = this._create_base_table();
@@ -194,7 +195,7 @@ export class Grid extends Object_Base {
      * turn the column model on it's side so we can do property lookups using the column name.
      * @param  {Object} column_model        - Column model used to create this grid.
      */
-    _create_lookup_tables( column_model ) {
+    _create_lookup_tables( column_model, grouping_model ) {
         let colCount = column_model.length;
 
         this.columns = {};
@@ -221,6 +222,22 @@ export class Grid extends Object_Base {
                 this.columns[ key ][ column_name ] = this.column_model[ i ][ key ];
             }
         }
+
+        this.grouping = {
+            columns:    [],
+            sort_order: {},
+            title:      {},
+        };
+
+        if( grouping_model.length != 0 ) {
+
+            for( let i = 0; i < grouping_model.length; i++ ) {
+                this.grouping.title[ grouping_model[ i ].column ] = grouping_model[ i ].title;
+                this.grouping.sort_order[ grouping_model[ i ].column ] = grouping_model[ i ].sort_order;
+                this.grouping.columns[ i ] = grouping_model[ i ].column;
+            }
+        }
+        console.log( "grouping", this.grouping );
     }
 
     /**
@@ -529,6 +546,7 @@ export class Grid extends Object_Base {
             this.data = data;
         }
 
+        this._sort_data( '', 'asc' );
         this.refresh();
     }
 
@@ -558,6 +576,15 @@ export class Grid extends Object_Base {
                 classes += ` ${wsgrid_row}_odd `;
             }
             zebra++;
+
+            if( this.grouping.columns.length > 0 ) {
+                if( i == 0 // first column grouping...
+                    || this.data[ i ][ this.grouping.columns[ 0 ] ] !== this.data[ i - 1 ][ this.grouping.columns[ 0 ] ]
+                ) {
+                    row_html += `<tr><td colspan="3"><h4>${this.data[ i ][ this.grouping.columns[ 0 ] ]}</h4></td></tr>`;
+                }
+
+            }
 
             row_html += this._generate_row( i, this.data[ i ], '', classes );
         }
@@ -1368,15 +1395,40 @@ export class Grid extends Object_Base {
             this.events.header_click.call( this, column_name );
         }
         else {
-            this.data.sort( ( a, b ) => {
-                return this._basic_sorting( column_name, a, b );
-            } );
-
-            this.sort_column = column_name;
-            this.sort_direction = ( this.sort_direction == 'asc' ? 'desc' : 'asc' );
-
+            this._sort_data( column_name, this.sort_direction );
             this.refresh();
         }
+    }
+
+    _sort_data( column_name = '', sort_order = 'asc' ) {
+        this.data.sort( ( a, b ) => {
+            if( this.grouping.columns.length > 0 ) {
+                let sort_columns = [];
+                let sort_orders = [];
+
+                for( let i = 0; i <  this.grouping.columns.length; i++ ) {
+                    sort_columns.push( this.grouping.columns[ i ] );
+                    if( column_name == this.grouping.columns[ i ] ) {
+                        this.grouping.sort_order[ this.grouping.columns[ i ] ] = sort_order;
+                    }
+                    sort_orders.push( this.grouping.sort_order[ this.grouping.columns[ i ] ] );
+                }
+                if( column_name != '' ) {
+                    if( ! sort_columns.includes( column_name ) ) {
+                        sort_columns.push( column_name );
+                        sort_orders.push( sort_order );
+                    }
+                }
+
+                return this._group_sorting( sort_columns, sort_orders, a, b );
+            }
+            else {
+                return this._basic_sorting( column_name, a, b );
+            }
+        } );
+
+        this.sort_column = column_name;
+        this.sort_direction = ( this.sort_direction == 'asc' ? 'desc' : 'asc' );
     }
 
     /**
@@ -1405,6 +1457,48 @@ export class Grid extends Object_Base {
                 return 1;
             }
             else {
+                return -1;
+            }
+        }
+    }
+
+    /**
+     * Do generic asc / desc sorting based on grouped data.
+     * @param  {String} columns     - a list of columns and sort orders.
+     * @param  {Object} a           - 1st row to compare for sorting.
+     * @param  {Object} b           - 2nd row to compre for sorting.
+     * @return {Number}             - 1 sort a up, -1 sort a down.
+     */
+    _group_sorting( sort_columns, sort_orders, a, b ) {
+        for( let i = 0; sort_columns.length; i++ ) {
+            let column = sort_columns[ i ];
+            let a_value = this._get_value( column, a );
+            let b_value = this._get_value( column, b );
+            console.log( "sort columns", sort_columns );
+            if( sort_orders[ i ] == 'asc' ) {
+
+                if( a_value > b_value ) {
+                    console.log( "sort", column, 'ASC', a_value, '||', b_value, "IF" );
+                    return 1;
+                }
+                else if( a_value < b_value ) {
+                    console.log( "sort", column, 'ASC', a_value, '||', b_value, "ELSE IF" );
+                    return -1;
+                }
+            }
+            else if( sort_orders[ i ] == 'desc' ) {
+
+                if( a_value < b_value ) {
+                    console.log( "sort", column, 'DESC', a_value, '||', b_value, "IF" );
+                    return 1;
+                }
+                else if( a_value > b_value ) {
+                    console.log( "sort", column, 'DESC', a_value, '||', b_value, "ELSE IF" );
+                    return -1;
+                }
+            }
+            else {
+                console.log( "sort", i, column, 'UNKNOWN', a_value, b_value, "ELSE" );
                 return -1;
             }
         }
