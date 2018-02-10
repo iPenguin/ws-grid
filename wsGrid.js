@@ -2106,4 +2106,19 @@ export class Grid extends Object_Base {
         let value = Number_Utility.from_currency( cell_value );
         return Number_Utility.to_currency( value );
     }
+
+    /**
+     * Format the data by hiding all zero values.
+     *
+     * @param  {String/Number} cell_value   - value of the cell.
+     * @return {String}                     - Either the original value or '' if value is 0.
+     */
+    format_nonzero( cell_value ) {
+
+        if( Number( cell_value ) == 0 ) {
+            return '';
+        }
+
+        return cell_value;
+    }
 };
