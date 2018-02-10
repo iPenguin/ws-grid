@@ -173,6 +173,7 @@ export class Grid extends Object_Base {
 
         this.is_filtered = false;
 
+        this._original_column_model = all_options.column_model;
         this._create_lookup_tables( all_options.column_model, all_options.grouping );
         this._calculate_columns();
 
@@ -761,6 +762,7 @@ export class Grid extends Object_Base {
             let alignment = this.columns.align[ column_name ];
             row_html += `<${column_type} class="${wsgrid_column} ${wsgrid_cell} ${column_classes} ${wsgrid_column}_${column_name}`
                         + ` ${user_classes}"`
+                        + ` id="${wsgrid_column}_${record_id}_${column_name}"`
                         + tooltip
                         + ` data-recordid='${record_id}' data-column='${column_name}' data-columnid="${column}"`
                         + ` style="${display} ${frozen_style} width:${this.columns.width[ column_name ]}px;text-align:${alignment};${user_styles};">`
@@ -2029,6 +2031,15 @@ export class Grid extends Object_Base {
                 }
             }
         }
+    }
+
+    /**
+     * Reset the columns to their default states.
+     */
+    reset_columns() {
+
+        this._create_lookup_tables( this._original_column_model );
+        this.refresh();
     }
 
     /**********************************************************************
