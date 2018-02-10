@@ -10,8 +10,8 @@ let columns = [
     { name: 'last_name',  label: 'Last Name',  width: 200, align: 'left',   fixed: false, type: 'text',     editable: false                                         },
     { name: 'age',        label: 'Age',        width: 75,  align: 'right',  fixed: true,  type: 'number',   editable: true                                          },
     { name: 'salary',     label: 'Salary',     width: 100, align: 'right',  fixed: true,  type: 'number',   editable: true, format: 'currency'                      },
-    { name: 'employer',   label: 'Employer',   width: 175, align: 'left',   fixed: true,  type: 'text',     editable: true,                                         },
-    { name: 'division',   label: 'Division',   width: 175, align: 'left',   fixed: true,  type: 'text',     editable: true,                                         },
+    { name: 'employer',   label: 'Employer',   width: 175, align: 'left',   fixed: true,  type: 'text',     editable: true, visible: false                          },
+    { name: 'division',   label: 'Division',   width: 175, align: 'left',   fixed: true,  type: 'text',     editable: true, visible: false                          },
     { name: 'height',     label: 'Height',     width: 75,  align: 'center', fixed: true,  type: 'text',     editable: true                                          },
     { name: 'dob',        label: 'DOB',        width: 100, align: 'center', fixed: true,  type: 'date',     editable: true                                          },
     { name: 'color',      label: 'Color',      width: 75,  align: 'center', fixed: true,  type: 'color',    editable: true                                          },
@@ -19,8 +19,12 @@ let columns = [
     { name: 'selected',   label: 'Check',      width: 50,  align: 'center', fixed: true,  type: 'checkbox', editable: true, format: 'boolean'                       },
 ];
 
-function employer_title( group_header, group_value, data ) {
-    return 'something else';
+function employer_header( group_header, group_value, row_data ) {
+    return `<h4 class="employee_header">${group_value}</h4>`;
+}
+
+function division_header( group_header, group_value, row_data ) {
+    return `<h5 class="division_header">${group_value}</h5>`;
 }
 
 let grid = new Grid( {
@@ -32,8 +36,8 @@ let grid = new Grid( {
     column_model:   columns,
     multi_select:   true,
     grouping:       [
-        { column: 'employer', sort_order: 'asc',  title: employer_title, },
-        { column: 'division', sort_order: 'desc', title: 'Division',     },
+        { column: 'employer', sort_order: 'asc',  header: employer_header, footer: 'test'    },
+        { column: 'division', sort_order: 'desc', header: division_header, footer: 'test 2'  },
         //{ column: 'division', sort_order: 'desc',                       },
     ],
     events:         {

@@ -5,23 +5,23 @@
  *
  * column_defaults: - An object containing default values for all columns.
  * column_model:    - a list of options that will define how each column displays it's data.
- *     name        - String          - Name of data field passed into grid.
- *     label       - String          - Label to show at the top of the column.
- *     visible     - Boolean         - Is the column visible?
- *     width       - Number          - How wide to make the column, (number only) but this is calculated in pixels.
- *     align       - String          - A string: left, right, or center.
- *     fixed       - Boolean         - When loading always start with the width given.
- *     type        - String/function - The type is used to determine the sorting.
- *                                     Valid values are: text, string, number, date, datetime, time, dropdown
- *                                     NOTE: you can also assign a function and it will run the custom function.
- *     options     - Object          - Key/value pairs for a type: "dropdown" column.
- *     editable     - Boolean         - Can this column be edited?
- *     frozen_left  - Boolean         - Is this column locked in place on the left?
- *     frozen_right - Boolean         - Is this column locked in place on the left?
- *     classes      - String/function - Custom CSS classes to apply to the column
- *     format       - String/function - On how to format the data, a function should return a string.
- *                                      String can be 'date', 'currency', or 'boolean'
- *     style        - String/function - Is or returns a string of CSS styles to apply to the cell
+ *     name         - String           - Name of data field passed into grid.
+ *     label        - String           - Label to show at the top of the column.
+ *     visible      - Boolean          - Is the column visible?
+ *     width        - Number           - How wide to make the column, (number only) but this is calculated in pixels.
+ *     align        - String           - A string: left, right, or center.
+ *     fixed        - Boolean          - When loading always start with the width given.
+ *     type         - String/function  - The type is used to determine the sorting.
+ *                                       Valid values are: text, string, number, date, datetime, time, dropdown
+ *                                       NOTE: you can also assign a function and it will run the custom function.
+ *     options      - Object           - Key/value pairs for a type: "dropdown" column.
+ *     editable     - Boolean/function - Can this column be edited?
+ *     frozen_left  - Boolean          - Is this column locked in place on the left?
+ *     frozen_right - Boolean          - Is this column locked in place on the left?
+ *     classes      - String/function  - Custom CSS classes to apply to the column
+ *     format       - String/function  - On how to format the data, a function should return a string.
+ *                                       String can be 'date', 'currency', 'boolean', or 'nonzero'
+ *     style        - String/function  - Is or returns a string of CSS styles to apply to the cell
  * column_reorder:                 - Enable reordering of columns using drag and drop.
  * connection:
  *     type      - String          - Type of connection used: 'Ajax' or 'Socket'.
@@ -49,8 +49,13 @@
  * filters:         - An object with filtering functions.
  * height:          - Height of grid. Set the height to an empty string to allow the grid to be the height of the data.
  * id:              - ID of DOM element that will contain this grid.
- * overflow         - Allow the columns to overflow the width of the grid. (default: false)
+ * overflow:        - Allow the columns to overflow the width of the grid. (default: false)
  * width:           - Width of grid.
+ * grouping:        - Array of objects containing grouping options. A grouping object can contain the following options:
+ *     column:                               - column name to sort or
+ *     sort_order                            - sort order asc, or desc
+ *     header
+ *     footer
  *
  **/
 
@@ -226,15 +231,17 @@ export class Grid extends Object_Base {
         this.grouping = {
             columns:    [],
             sort_order: {},
-            title:      {},
+            header:     {},
+            footer:     {},
         };
 
         if( grouping_model.length != 0 ) {
 
             for( let i = 0; i < grouping_model.length; i++ ) {
-                this.grouping.title[ grouping_model[ i ].column ] = grouping_model[ i ].title;
-                this.grouping.sort_order[ grouping_model[ i ].column ] = grouping_model[ i ].sort_order;
                 this.grouping.columns[ i ] = grouping_model[ i ].column;
+                this.grouping.sort_order[ grouping_model[ i ].column ] = grouping_model[ i ].sort_order;
+                this.grouping.header[ grouping_model[ i ].column ] = grouping_model[ i ].header;
+                this.grouping.footer[ grouping_model[ i ].column ] = grouping_model[ i ].footer;
             }
         }
         console.log( "grouping", this.grouping );
@@ -578,15 +585,55 @@ export class Grid extends Object_Base {
             zebra++;
 
             if( this.grouping.columns.length > 0 ) {
-                if( i == 0 // first column grouping...
-                    || this.data[ i ][ this.grouping.columns[ 0 ] ] !== this.data[ i - 1 ][ this.grouping.columns[ 0 ] ]
-                ) {
-                    row_html += `<tr><td colspan="3"><h4>${this.data[ i ][ this.grouping.columns[ 0 ] ]}</h4></td></tr>`;
+                let group_count = this.grouping.columns.length;
+
+                let flag_new_group = false;
+                for( let g = 0; g < group_count; g++ ) {
+                    let column = this.grouping.columns[ g ];
+                    if( i == 0
+                        || this.data[ i ][ column ] !== this.data[ i - 1 ][ column ]
+                        || flag_new_group
+                    ) {
+                        flag_new_group = true;
+                        if( typeof( this.grouping.header ) !== 'undefined' ) {
+                            if( typeof( this.grouping.header[ column ] ) == 'function' ) {
+                                row_html += this.grouping.header[ column ]( column, this.data[ i ][ column ], this.data[ i ] );
+                            }
+                            else {
+                                row_html += this.grouping.header[ column ];
+                            }
+                        }
+                    }
                 }
 
             }
 
             row_html += this._generate_row( i, this.data[ i ], '', classes );
+
+            if( this.grouping.columns.length > 0 ) {
+                let group_count = this.grouping.columns.length;
+
+                let flag_new_group = false;
+                for( let g = 0; g < group_count; g++ ) {
+                    let column = this.grouping.columns[ g ];
+                    if( i == 0
+                        || this.data[ i ][ column ] !== this.data[ i - 1 ][ column ]
+                        || flag_new_group
+                    ) {
+                        flag_new_group = true;
+                        if( typeof( this.grouping.footer ) !== 'undefined' ) {
+                            if( typeof( this.grouping.footer[ column ] ) == 'function' ) {
+                                row_html += this.grouping.footer[ column ]( column, this.data[ i ][ column ], this.data[ i ] );
+                            }
+                            else {
+                                row_html += this.grouping.footer[ column ];
+                            }
+                        }
+                    }
+                }
+
+            }
+
         }
 
         return row_html;
@@ -1401,8 +1448,10 @@ export class Grid extends Object_Base {
     }
 
     _sort_data( column_name = '', sort_order = 'asc' ) {
+        let has_grouping = ( this.grouping.columns.length > 0 ? true : false );
+
         this.data.sort( ( a, b ) => {
-            if( this.grouping.columns.length > 0 ) {
+            if( has_grouping ) {
                 let sort_columns = [];
                 let sort_orders = [];
 
@@ -1442,6 +1491,7 @@ export class Grid extends Object_Base {
         let a_value = this._get_value( column_name, a );
         let b_value = this._get_value( column_name, b );
 
+        this.sort_direction = this.sort_direction.toLowerCase();
         if( this.sort_direction == 'asc' ) {
 
             if( a_value >= b_value ) {
@@ -1469,39 +1519,36 @@ export class Grid extends Object_Base {
      * @param  {Object} b           - 2nd row to compre for sorting.
      * @return {Number}             - 1 sort a up, -1 sort a down.
      */
-    _group_sorting( sort_columns, sort_orders, a, b ) {
-        for( let i = 0; sort_columns.length; i++ ) {
-            let column = sort_columns[ i ];
-            let a_value = this._get_value( column, a );
-            let b_value = this._get_value( column, b );
-            console.log( "sort columns", sort_columns );
-            if( sort_orders[ i ] == 'asc' ) {
+    _group_sorting( sort_columns, sort_orders, a, b, sanity = 100 ) {
+        let column = sort_columns.shift();
+        let sort_order = sort_orders.shift();
+        let a_value = this._get_value( column, a );
+        let b_value = this._get_value( column, b );
 
-                if( a_value > b_value ) {
-                    console.log( "sort", column, 'ASC', a_value, '||', b_value, "IF" );
-                    return 1;
-                }
-                else if( a_value < b_value ) {
-                    console.log( "sort", column, 'ASC', a_value, '||', b_value, "ELSE IF" );
-                    return -1;
-                }
-            }
-            else if( sort_orders[ i ] == 'desc' ) {
+        sort_order = sort_order.toLowerCase();
+        if( sort_order == 'asc' ) {
 
-                if( a_value < b_value ) {
-                    console.log( "sort", column, 'DESC', a_value, '||', b_value, "IF" );
-                    return 1;
-                }
-                else if( a_value > b_value ) {
-                    console.log( "sort", column, 'DESC', a_value, '||', b_value, "ELSE IF" );
-                    return -1;
-                }
+            if( a_value > b_value ) {
+                return 1;
             }
-            else {
-                console.log( "sort", i, column, 'UNKNOWN', a_value, b_value, "ELSE" );
+            else if( a_value < b_value || sort_columns.length == 0 ) {
                 return -1;
             }
         }
+        else if( sort_order == 'desc' ) {
+
+            if( a_value < b_value ) {
+                return 1;
+            }
+            else if( a_value > b_value || sort_columns.length == 0 ) {
+                return -1;
+            }
+        }
+
+        if( sanity <= 0 ) {
+            return -1;
+        }
+        return this._group_sorting( sort_columns, sort_orders, a, b, --sanity );
     }
 
     /**
