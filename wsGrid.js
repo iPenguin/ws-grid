@@ -1151,6 +1151,36 @@ export class Grid extends Object_Base {
     }
 
     /**
+     * is the given cell editable?
+     * @param  {String}  column_name - Name of the column to check
+     * @param  {Number}  row_id      - Row id of the record to check.
+     * @return {Boolean}             - is the cell editable?
+     */
+    is_editable( column_name, row_id ) {
+        let editable = this.columns.editable[ column_name ];
+        if( typeof( editable ) == 'function' ) {
+            editable = editable( row_id, column_name, this.data );
+        }
+
+        return editable;
+    }
+
+    /**
+     * return an array of all values from a given column.
+     * @param  {String} column_name - Name of column to get the data form.
+     * @return {Array}              - Array of values from the column.
+     */
+    column_values( column_name ) {
+        let c_data = [];
+
+        for( let i = 0; i < this.data.length; i++ ) {
+            c_data.push( this.data[ i ][ column_name ] );
+        }
+
+        return c_data;
+    }
+
+    /**
      * Get the record ids of the selected row.
      * @return {[type]} [description]
      */
@@ -1292,10 +1322,15 @@ export class Grid extends Object_Base {
             }
 
             if( ! event.defaultPrevented ) {
+                let editable = this.columns.editable[ column_name ];
+                if( typeof( editable ) == 'function' ) {
+                    editable = editable( row, column_name, this.data );
+                }
+
                 // If this column is editable create an editor
                 // for the user to change the data.
                 if( this.columns.visible[ column_name ]
-                    && this.columns.editable[ column_name ]
+                && editable
                 ) {
                     let properties = {};
                     let keys = Object.keys( column_defaults );
@@ -1853,7 +1888,12 @@ export class Grid extends Object_Base {
             }
 
             let current_column = this.column_order[ i ];
-            if( this.columns.visible[ current_column ] && this.columns.editable[ current_column ] ) {
+            let editable = this.columns.editable[ current_column ];
+            if( typeof( editable ) == 'function' ) {
+                editable = editable( current_record, current_column, this.data );
+            }
+
+            if( this.columns.visible[ current_column ] && editable ) {
                 let e = new Event( 'dblclick', { bubbles: true } );
                 let target = this.grid.querySelector( `.${wsgrid_row}_${current_record} td.${wsgrid_column}_${current_column}` );
 
