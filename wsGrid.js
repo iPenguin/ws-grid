@@ -1123,6 +1123,34 @@ export class Grid extends Object_Base {
     }
 
     /**
+     * Update the given records based on the unique key.
+     * @param  {String} unique_key      - name of the key field.
+     * @param  {Array}  data            - Array of data including the key field to update.
+     */
+    update_records( unique_key, updated_data ) {
+        let updated_count = updated_data.length;
+        let count = this.data.length;
+
+        for( let i = 0; i < updated_count; i++ ) {
+            let keys = Object.keys( updated_data[ i ] );
+            delete keys[ unique_key ];
+
+            let key_value = updated_data[ i ][ unique_key ];
+
+            for( let j = 0; j < count; j++ ) {
+                if( this.data[ j ][ unique_key ] == key_value ) {
+                    for( let k = 0; k < keys.length; k++ ) {
+                        let key = keys[ k ];
+                        this.data[ j ][ key ] = updated_data[ i ][ key ];
+                    }
+                    break;
+                }
+            }
+        }
+        this.refresh();
+    }
+
+    /**
      * Getter/setter for the value of a given cell.
      * @param  {String} column_name - Name of the column to get the data from
      * @param  {Number} row_id     - record id number.
