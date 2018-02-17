@@ -105,12 +105,13 @@ let grid_defaults = {
     overflow:           true,
     sort_column:        '',
     sort_direction:     'asc',
+    column_model:       [],
     column_reorder:     false,
     column_resize:      true,
     column_sort:        true,
     row_reorder:        false,
     multi_select:       false,
-    grouping:           [],
+    grouping_model:     [],
     connection_type:    'socket',
     connection_options: {
         url: '',
@@ -173,8 +174,7 @@ export class Grid extends Object_Base {
 
         this.is_filtered = false;
 
-        this._original_column_model = all_options.column_model;
-        this._create_lookup_tables( all_options.column_model, all_options.grouping );
+        this._create_lookup_tables( all_options.column_model, all_options.grouping_model );
         this._calculate_columns();
 
         this.grid = this._create_base_table();
@@ -201,7 +201,15 @@ export class Grid extends Object_Base {
      * turn the column model on it's side so we can do property lookups using the column name.
      * @param  {Object} column_model        - Column model used to create this grid.
      */
-    _create_lookup_tables( column_model, grouping_model ) {
+    _create_lookup_tables( column_model = null, grouping_model = null ) {
+        if( column_model === null ) {
+            column_model = this.column_model;
+        }
+
+        if( grouping_model === null ) {
+            grouping_model = this.grouping_model;
+        }
+
         let colCount = column_model.length;
 
         this.columns = {};
@@ -245,7 +253,6 @@ export class Grid extends Object_Base {
                 this.grouping.footer[ grouping_model[ i ].column ] = grouping_model[ i ].footer;
             }
         }
-        console.log( "grouping", this.grouping );
     }
 
     /**
@@ -325,7 +332,7 @@ export class Grid extends Object_Base {
 
             this.columns.width[ column_name ] = new_width;
         }
-        console.log( "widths", grid_width, fixed_width, flex_width, remaining_width, user_set );
+
         if( this.overflow ) {
             this.min_row_width = fixed_width + flex_width;
         }
@@ -566,7 +573,6 @@ export class Grid extends Object_Base {
 
         let row_html = '';
         let count = this.data.length;
-
         let zebra = 0;
 
         for( let i = 0; i < count; i++ ) {
@@ -576,7 +582,6 @@ export class Grid extends Object_Base {
             }
 
             let classes = '';
-
             if( zebra % 2 == 0 ) {
                 classes += ` ${wsgrid_row}_even `;
             }
@@ -585,6 +590,7 @@ export class Grid extends Object_Base {
             }
             zebra++;
 
+            // Generate the grouping headers
             if( this.grouping.columns.length > 0 ) {
                 let group_count = this.grouping.columns.length;
 
@@ -606,11 +612,12 @@ export class Grid extends Object_Base {
                         }
                     }
                 }
-
             }
 
+            // Generate regular rows
             row_html += this._generate_row( i, this.data[ i ], '', classes );
 
+            // Generate the grouping footer
             if( this.grouping.columns.length > 0 ) {
                 let group_count = this.grouping.columns.length;
 
@@ -632,9 +639,7 @@ export class Grid extends Object_Base {
                         }
                     }
                 }
-
             }
-
         }
 
         return row_html;
@@ -996,7 +1001,6 @@ export class Grid extends Object_Base {
      */
     set_totals_row( row_data ) {
         if( Array.isArray( row_data ) ) {
-            console.log( "Only using the first row of data" );
             this.totals_data = row_data[ 0 ];
         }
         else {
@@ -2078,7 +2082,7 @@ export class Grid extends Object_Base {
      */
     reset_columns() {
 
-        this._create_lookup_tables( this._original_column_model );
+        this._create_lookup_tables();
         this.refresh();
     }
 
