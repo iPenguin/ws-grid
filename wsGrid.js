@@ -766,7 +766,7 @@ export class Grid extends Object_Base {
 
             let alignment = this.columns.align[ column_name ];
             row_html += `<${column_type} class="${wsgrid_column} ${wsgrid_cell} ${column_classes} ${wsgrid_column}_${column_name}`
-                        + ` ${user_classes}"`
+                        + ( is_header ? '' : ` ${user_classes}"` )
                         + ` id="${wsgrid_column}_${record_id}_${column_name}"`
                         + tooltip
                         + ` data-recordid='${record_id}' data-column='${column_name}' data-columnid="${column}"`
