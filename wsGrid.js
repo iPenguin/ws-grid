@@ -1890,7 +1890,12 @@ export class Grid extends Object_Base {
             }
 
             let current_column = this.column_order[ i ];
-            if( this.columns.visible[ current_column ] && this.columns.editable[ current_column ] ) {
+            let editable = this.columns.editable[ current_column ];
+            if( typeof( editable ) == 'function' ) {
+                editable = editable( current_record, current_column, this.data );
+            }
+
+            if( this.columns.visible[ current_column ] && editable ) {
                 let e = new Event( 'dblclick', { bubbles: true } );
                 let target = this.grid.querySelector( `.${wsgrid_row}_${current_record} td.${wsgrid_column}_${current_column}` );
 
