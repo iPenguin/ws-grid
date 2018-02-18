@@ -66,10 +66,9 @@
             column_reorder: true,
             column_model:   columns,
             multi_select:   true,
-            grouping:       [
+            grouping_model: [
                 { column: 'employer', sort_order: 'asc',  header: employer_header, footer: 'test'    },
                 { column: 'division', sort_order: 'desc', header: division_header, footer: 'test 2'  },
-                //{ column: 'division', sort_order: 'desc',                       },
             ],
             events:         {
                 click( row, column_name, data ) {
@@ -172,6 +171,7 @@
             }
             alert( text );
         };
+
     </script>
 </body>
 </html>
