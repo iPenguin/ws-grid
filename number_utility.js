@@ -1,9 +1,11 @@
 /**
+ * @type {Object}
  * This file contains utilities to help with number conversion and display.
  */
 export let Number_Utility = {
 
     /**
+     * @type {function}
      * Convert a dollar amount to a simple number.
      * @param  {String} string       - Currency formatted string
      * @return {Number}              - amount as a number
@@ -29,6 +31,7 @@ export let Number_Utility = {
     },
 
     /**
+     * @type {function}
      * Convert a number to a dollar amount string.
      * TODO: add thousands seperator
      *
@@ -67,6 +70,7 @@ export let Number_Utility = {
     },
 
     /**
+     * @type {function}
      * If there isn't enough precision in the number add it,
      * but don't truncate if there is more then the minimum precision,
      * unless the limitPrecision flag is set.

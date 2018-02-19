@@ -1,4 +1,5 @@
 /**
+ * @class
  * This module contains a Grid class that will create a table/grid for displaying and editing tabular data.
  *
  *Options:
@@ -135,6 +136,10 @@ function convert_html_entities( string ) {
     } );
 };
 
+/**
+ * Grid class.
+ * @class
+ */
 export class Grid extends Object_Base {
     constructor( options ) {
         super( options );
@@ -801,6 +806,7 @@ export class Grid extends Object_Base {
      *
      * @param {String} column_name    - Column to move
      * @param {String} next_element   - Column to move in front of
+     * @emits {column.moved} emits event when a column's position is changed.
      */
     set_column_position( column_name, next_element ) {
         this.column_order.splice( this.column_order.indexOf( column_name ), 1 );
@@ -822,6 +828,7 @@ export class Grid extends Object_Base {
      *
      * @param {Number} row_id         - row to move
      * @param {Number} previous_row   - place row_id after previous_row, if it exists or at the end of the grid.
+     * @emits {wsgrid__data.row_moved} emits event when a row's position is changed.
      */
     set_row_position( row_id, previous_row ) {
         let row_data = this.data[ row_id ];
@@ -1156,6 +1163,7 @@ export class Grid extends Object_Base {
      * @param  {Number} row_id     - record id number.
      * @param  {Mixed}  value      - If setting the value of a cell, this is the value to set.
      * @return {Mixed}             - If getting the value of a cell, this is the value returned.
+     * @emits  {wsgrid__data.cell_changed} emits event when the data in a cell is changed.
      */
     cell_value( column_name, row_id, value ) {
 
@@ -1760,7 +1768,10 @@ export class Grid extends Object_Base {
             }
         } );
 
-        // Force the blur event to save and close the editor.
+        /**
+         * Force the blur event to save and close the editor.
+         * @emits {click} emits event on blur of the cell editor to force the click event code to run.
+         */
         cell.firstChild.addEventListener( 'blur', ( event ) => {
             let e = new Event( 'click' );
             document.dispatchEvent( e );
@@ -1820,6 +1831,7 @@ export class Grid extends Object_Base {
      * @param  {Event} event   - event that triggered this function.
      * @param  {HTMLObject}    - HTML object of the cell we're editing.
      * @return {Boolean}       - did the editor close?
+     * @emits  {wsgri__data.cell_changed} emits event when the editor is closed and the data change has been saved.
      */
     _close_editor( event, cell ) {
         if( typeof( this.events.before_inline_closed ) == 'function' ) {
@@ -1876,6 +1888,7 @@ export class Grid extends Object_Base {
      * Find the next editor to open and open it.
      * @param  {Event} event   - DOM event
      * @param  {Element} cell   - HTML Element
+     * @emits  {dblclick} emits event to open editor on the next editable cell.
      */
     _open_next_editor( event, cell ) {
         let current_record = cell.dataset.recordid;
@@ -1895,6 +1908,7 @@ export class Grid extends Object_Base {
                 editable = editable( current_record, current_column, this.data );
             }
 
+            // If we have found the next editable cell use the dblclick event to open the editor.
             if( this.columns.visible[ current_column ] && editable ) {
                 let e = new Event( 'dblclick', { bubbles: true } );
                 let target = this.grid.querySelector( `.${wsgrid_row}_${current_record} td.${wsgrid_column}_${current_column}` );
@@ -1909,8 +1923,9 @@ export class Grid extends Object_Base {
 
     /**
      * Find the previous editor to open and open it.
-     * @param  {[type]} cell [description]
-     * @return {[type]}      [description]
+     * @param  {Event}   even   - DOM event
+     * @param  {Element} cell   - HTML Element
+     * @emits  {dblclick}       - Emits event to open editor on the next editable cell.
      */
     _open_previous_editor( event, cell ) {
         let current_record = cell.dataset.recordid;
@@ -1930,6 +1945,7 @@ export class Grid extends Object_Base {
                 editable = editable( current_record, current_column, this.data );
             }
 
+            // If we have found the previous editable cell use the dblclick event to open the editor.
             if( this.columns.visible[ current_column ] && editable ) {
                 let e = new Event( 'dblclick', { bubbles: true } );
                 let target = this.grid.querySelector( `.${wsgrid_row}_${current_record} td.${wsgrid_column}_${current_column}` );
