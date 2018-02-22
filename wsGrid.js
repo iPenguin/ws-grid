@@ -1158,6 +1158,25 @@ export class Grid extends Object_Base {
     }
 
     /**
+     * Setter for cell values. This function does not emit any signals when
+     * changing the data in the data model.
+     *
+     * @param {String} column_name - Name of the column to set data for
+     * @param {Number} row_id      - Row number to set data for
+     * @param {Mixed}  value       - Value to set in the row, column.
+     */
+    set_cell( column_name, row_id, value ) {
+        let old_value = this.data[ row_id ][ column_name ];
+
+        if( old_value == value ) {
+            return;
+        }
+
+        this.data[ row_id ][ column_name ] = value;
+        this.refresh();
+    }
+
+    /**
      * Getter/setter for the value of a given cell.
      * @param  {String} column_name - Name of the column to get the data from
      * @param  {Number} row_id     - record id number.
@@ -1171,22 +1190,15 @@ export class Grid extends Object_Base {
             return this.data[ row_id ][ column_name ];
         }
         else {
-            let old_value = this.data[ row_id ][ column_name ];
-
-            if( old_value == value ) {
-                return;
-            }
-
-            this.data[ row_id ][ column_name ] = value;
+            this.set_cell( column_name, row_id, value );
             let e = new Event( `${wsgrid_data}.cell_changed`, { bubbles: true } );
             e.change = [ {
                 row:       row_id,
                 column:    column_name,
-                new_value:  value,
+                new_value: value,
                 old_value: old_value,
             } ];
             document.dispatchEvent( e );
-            this.refresh();
         }
     }
 
