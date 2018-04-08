@@ -2367,7 +2367,7 @@ export class Grid extends Object_Base {
      */
     format_boolean( cell_value ) {
         if( Number( cell_value ) == 1 ) {
-            return "X";
+            return "<i class='fa fa-check fa-lg'></i>";
         }
 
         return '';
