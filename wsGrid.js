@@ -213,6 +213,7 @@ export class Grid extends Object_Base {
         // conect events.
         this.grid.addEventListener( 'click', ( event ) => { this.click.call( this, event ); } );
         this.grid.addEventListener( 'dblclick', ( event ) => { this.dblclick.call( this, event ); } );
+        this.grid.addEventListener( 'change', ( event ) => { this.change.call( this, event ); } );
         this.grid.addEventListener( 'load_complete', ( event ) => { this.load_complete.call( this, event ); } );
         this.grid.addEventListener( 'mousedown', ( event ) => { this.mousedown.call( this, event ); } );
         this.grid.addEventListener( 'mousemove', ( event ) => { this.mousemove.call( this, event ); } );
@@ -1468,6 +1469,17 @@ export class Grid extends Object_Base {
                     }
                 }
             }
+        }
+    }
+
+    /**
+     * Change event,
+     * @param  {Event} event  - Trigger event for grid changes.
+     */
+    change( event ) {
+        if( event.target.classList.contains( `${wsgrid_multiselect}_checkbox` ) ) {
+            let e = new Event( `${wsgrid_data}.selection_changed`, { bubbles: true } );
+            event.target.dispatchEvent( e );
         }
     }
 
