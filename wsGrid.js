@@ -1053,7 +1053,8 @@ export class Grid extends Object_Base {
             class_name = `id_${row_id}`;
         }
 
-        return `<input class="${wsgrid_multiselect}_${class_name}" type="checkbox" data-recordid="${row_id}">`;
+        // Class order makes a difference here:
+        return `<input class="${wsgrid_multiselect}_${class_name} ${wsgrid_multiselect}_checkbox" type="checkbox" data-recordid="${row_id}">`;
     }
 
     /**
