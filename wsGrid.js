@@ -774,6 +774,18 @@ export class Grid extends Object_Base {
                         value = data[ column_name ];
                     }
                 }
+                // a column can display data even if it doesn't have data from the backend.
+                else if( typeof( this.columns.format[ column_name ] ) !== 'undefined' ) {
+                    // display data from a user function
+                    if( typeof( this.columns.format[ column_name ] ) == 'function' ) {
+                        value = this.columns.format[ column_name ]( data[ column_name ], data );
+                    }
+                    // display data from a built-in function
+                    else {
+                        let formatType = this.columns.format[ column_name ];
+                        value = this[ `format_${formatType.toLowerCase()}` ]( data[ column_name ] );
+                    }
+                }
             }
 
             /*********************************************************************************
