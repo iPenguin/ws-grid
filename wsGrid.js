@@ -1365,18 +1365,40 @@ export class Grid extends Object_Base {
 
             for( let i = 0; i < checkboxes.length; i++ ) {
                 if( checkboxes[ i ].checked ) {
-                    records.push( checkboxes[ i ].dataset.recordid );
+                    records.push( Number( checkboxes[ i ].dataset.recordid ) );
                 }
             }
         }
         else {
             let selected_rows = this.grid.querySelectorAll( '.selected' );
             for( let i = 0; i < selected_rows.length; i++ ) {
-                records.push( selected_rows[ i ].dataset.recordid );
+                records.push( Number( selected_rows[ i ].dataset.recordid ) );
             }
         }
 
         return records;
+    }
+
+    /**
+     * Get the data for all rows that have been changed.
+     * @return {[type]} [description]
+     */
+    get_changed_rows() {
+        let rows = [];
+
+        for( let i = 0; i < this.data.length; i++ ) {
+            let columns = this.columns.order;
+            for( let c = 0; c < columns.length; c++ ) {
+                let column = columns[ c ];
+
+                if( this.metadata[ i ][ column ].changed ) {
+                    rows.push( this.data[ i ] );
+                    break;
+                }
+            }
+        }
+
+        return rows;
     }
 
     /**
