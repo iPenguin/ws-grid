@@ -1525,10 +1525,17 @@ export class Grid extends Object_Base {
                     editable = editable( row, column_name, this.data );
                 }
 
+                if( this.columns.visible[ column_name ]
+                    && editable
+                    && this.columns.type[ column_name ] == 'checkbox'
+                ) {
+                    let value = Number( this.cell_value( column_name, row ) );
+                    this.cell_value( column_name, row, Math.abs( value - 1 ) );
+                }
                 // If this column is editable create an editor
                 // for the user to change the data.
-                if( this.columns.visible[ column_name ]
-                && editable
+                else if( this.columns.visible[ column_name ]
+                    && editable
                 ) {
                     let properties = {};
                     let keys = Object.keys( column_defaults );
