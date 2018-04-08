@@ -156,7 +156,28 @@ function convert_html_entities( string ) {
     return string.replace( /[&<>\"]/g, ( tag ) => {
         return tags_to_replace[ tag ] || tag;
     } );
-};
+}
+
+/**
+ * Test if the HTML Element we are looking at is a part of this grid.
+ * If so return true otherwise return false.
+ *
+ * @param  {HTMLElement}  target - element that we are testing
+ * @return {Boolean}             - is the target element a part of the grid?
+ */
+function _is_grid_element( target ) {
+    if( target.tagName == 'TABLE'
+        || target.tagName == 'TH'
+        || target.tagName == 'TR'
+        || target.tagName == 'TD'
+        || target.classList.contains( `${wsgrid_multiselect}_header` )
+        || target.classList.contains( `${wsgrid_editor}_main_editor` )
+    ) {
+        return true;
+    }
+
+    return false;
+}
 
 /**
  * Grid class.
@@ -1465,29 +1486,42 @@ export class Grid extends Object_Base {
      *    row_data    - data object for the row clicked on.
      */
     click( event ) {
-        let classList = event.target.classList;
+        let target = event.target;
+        let classList = [];
 
         if( this.drag.started ) {
             return;
         }
 
+        // If we're not clicking directly on a table element, 'bubble' to the closest element.
+        if( ! _is_grid_element( target ) ) {
+            target = target.closest( 'TD' );
+        }
+
+        classList = target.classList;
+
         if( classList.contains( `${wsgrid_header}_column` ) ) {
             this.header_click( event );
         }
         else if( classList.contains( `${wsgrid_multiselect}_header` ) ) {
-            this._multiselect_header_checked( event.target.checked );
+            this._multiselect_header_checked( target.checked );
         }
         else if( classList.contains( `${wsgrid_cell}` ) ) {
             let selected = this.grid.getElementsByClassName( 'selected' );
             let count = selected.length;
             for( let i = 0; i < count; i++ ) {
+                selected[ i ].closest( 'tr' ).classList.remove( 'selected_row' );
                 selected[ i ].classList.remove( 'selected' );
             }
 
-            event.target.classList.add( 'selected' );
+            target.classList.add( 'selected' );
+            target.closest( 'tr' ).classList.add( 'selected_row' );
 
-            let row = event.target.dataset.recordid;
-            let column = event.target.dataset.column;
+            let e = new Event( `${wsgrid_data}.selection_changed`, { bubbles: true } );
+            event.target.dispatchEvent( e );
+
+            let row = target.dataset.recordid;
+            let column = target.dataset.column;
 
             if( typeof( this.events.click ) == 'function' ) {
                 this.events.click.call( this, row, column, this.data[ row ], event );
@@ -1504,15 +1538,23 @@ export class Grid extends Object_Base {
      *    row_data    - data object for the row clicked on.
      */
     dblclick( event ) {
-        let classList = event.target.classList;
+        let target = event.target;
+        let classList = [];
 
         if( this.drag.started ) {
             return;
         }
 
+        // If we're not clicking directly on a table element, 'bubble' to the closest element.
+        if( ! _is_grid_element( target ) ) {
+            target = target.closest( 'TD' );
+        }
+
+        classList = target.classList;
+
         if( classList.contains( `${wsgrid_cell}` ) ) {
-            let row = Number( event.target.dataset.recordid );
-            let column_name = event.target.dataset.column;
+            let row = Number( target.dataset.recordid );
+            let column_name = target.dataset.column;
 
             // only call the user defined function if it exists.
             if( typeof( this.events.dblclick ) == 'function' ) {
