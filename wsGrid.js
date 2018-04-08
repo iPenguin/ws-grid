@@ -1206,6 +1206,27 @@ export class Grid extends Object_Base {
     }
 
     /**
+     * Delete rows from grid where the given key/value pairs match.
+     * @param  {Object[]} matches    - Array of { key: '', value: '' } matches.
+     */
+    delete_matches( matches ) {
+        let records = [];
+        for( let i = 0; i < matches.length; i++ ) {
+            let key = matches[ i ].key;
+            let value = matches[ i ].value;
+
+            let count = this.data.length;
+            for( let j = ( count - 1 ); j > 0; j-- ) {
+                if( this.data[ j ][ key ] == value ) {
+                    records.push( j );
+                }
+            }
+        }
+
+        this.delete_rows( records );
+    }
+
+    /**
      * Count of the rows of data in the record set.
      * @return {Number} - record set count
      */
