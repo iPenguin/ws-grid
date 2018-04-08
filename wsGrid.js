@@ -2044,21 +2044,31 @@ export class Grid extends Object_Base {
             }
         }
 
+        let old_value = this.data[ row_id ][ column_name ];
+
         // save the data before it's formatted.
         this.data[ row_id ][ column_name ] = new_value;
 
+        let format_new_value = new_value;
+
         let formatType = typeof( this.columns.format[ column_name ] );
         if( this.columns.type[ column_name ] == 'dropdown' ) {
-            new_value = this.columns.options[ column_name ][ new_value ];
-        }
-        if( formatType == 'string' ) {
-            new_value = this[ `format_${this.columns.format[ column_name ].toLowerCase()}` ]( new_value );
-        }
-        else if( formatType == 'function' ) {
-            new_value = this.columns.format[ column_name ]( new_value, this.data[ row_id ] );
+            format_new_value = this.columns.options[ column_name ][ format_new_value ];
         }
 
-        cell.innerHTML = new_value;
+        if( formatType == 'string' ) {
+            format_new_value = this[ `format_${this.columns.format[ column_name ].toLowerCase()}` ]( format_new_value );
+        }
+        else if( formatType == 'function' ) {
+            format_new_value = this.columns.format[ column_name ]( format_new_value, this.data[ row_id ] );
+        }
+
+        cell.innerHTML = format_new_value;
+
+        // Don't alert for changes unless the data really changed.
+        if( new_value == old_value ) {
+            return true;
+        }
 
         this.metadata[ row_id ][ column_name ].changed = true;
 
