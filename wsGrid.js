@@ -23,6 +23,9 @@
  *     format       - String/function  - On how to format the data, a function should return a string.
  *                                       String can be 'date', 'currency', 'boolean', or 'nonzero'
  *     style        - String/function  - Is or returns a string of CSS styles to apply to the cell
+ *     max_length   - Number           - How long can the string/number be?
+ *     min_length   - Number           - Minimum length of input.
+ *
  * column_reorder:                 - Enable reordering of columns using drag and drop.
  * connection:
  *     type      - String          - Type of connection used: 'Ajax' or 'Socket'.
@@ -93,7 +96,13 @@ let column_defaults = {
     style:        '',
     tooltip:      '',
     options:      {},
+    max_length:   undefined,
+    min_length:   undefined,
     format:       ( value ) => {
+        if( value === undefined ) {
+            return '';
+        }
+
         return value;
     }
 };
@@ -1008,6 +1017,7 @@ export class Grid extends Object_Base {
      */
     set_totals_row( row_data ) {
         if( Array.isArray( row_data ) ) {
+            console.log( "Only using the first row of data" );
             this.totals_data = row_data[ 0 ];
         }
         else {
@@ -1737,14 +1747,15 @@ export class Grid extends Object_Base {
         }
         else {
             editor = `<input type="${properties.type}" class="${wsgrid_editor}_main_editor"`
-                    + `style="width:calc( 100% - 10px );text-align:${properties.align}" `
-                    + `value=\"${value}\" ${checked}>`;
+                + ` style="width:calc( 100% - 10px );text-align:${properties.align}"`
+                + ( properties.max_length ? ` maxlength="${properties.max_length}"` : '' )
+                + ` value=\"${value}\" ${checked}>`;
         }
 
         cell.dataset.oldvalue = cell.innerHTML;
         cell.innerHTML = editor;
-        let self = this;
 
+        let self = this;
         cell.firstChild.addEventListener( 'keydown', ( event ) => {
 
             switch( event.keyCode ) {
