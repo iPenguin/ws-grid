@@ -2415,6 +2415,21 @@ export class Grid extends Object_Base {
     }
 
     /**
+     * format the data as currency, a custom user function can override the default abilty.
+     * @param  {String} cell_value     - Value to format
+     * @return {String}                - Formatted value
+     */
+    format_currency_small( cell_value ) {
+        // Check for a user defined currency function first.
+        if( typeof( this.currency ) == 'function' ) {
+            return this.currency( cell_value );
+        }
+
+        let value = Number_Utility.from_currency( cell_value );
+        return Number_Utility.to_currency( value, 4 );
+    }
+
+    /**
      * Format the data by hiding all zero values.
      *
      * @param  {String/Number} cell_value   - value of the cell.
