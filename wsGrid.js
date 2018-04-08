@@ -1678,6 +1678,16 @@ export class Grid extends Object_Base {
      ***************/
 
     /**
+     * Bind events to this grid.
+     * @param  {String}    event     - Event that we are binding to.
+     * @param  {Function}  callback  - Code to run when the event is triggered.
+     * @param  {Object}    params    - Options for the event listner.
+     */
+    bind( event, callback, params ) {
+        this.grid.addEventListener( event, callback, params );
+    }
+
+    /**
      * This event fires when the header columns are clicked
      * The default event is to sort the data by the given column.
      * Asending first, then descending.
