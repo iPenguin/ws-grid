@@ -1409,8 +1409,11 @@ export class Grid extends Object_Base {
      */
     get_row_data( rows ) {
 
-        let record_data = [];
+        if( typeof( rows ) == 'undefined' ) {
+            return [];
+        }
 
+        let record_data = [];
         for( let i = 0; i < rows.length; i++ ) {
             record_data.push( this.data[ rows[ i ] ] );
         }
