@@ -38,9 +38,10 @@ $font-size: 14px;
             td {
                 background-color: #ececec;
             }
-            td.selected {
-                background-color: LightSkyBlue; /* light gray */
-            }
+        }
+        tr:hover td.selected,
+        td.selected {
+            background-color: LightSkyBlue; /* light gray */
         }
     }
 
@@ -59,9 +60,6 @@ $font-size: 14px;
 
     tr {
         display: flex;
-    }
-    tr.selected {
-        background-color: #e0e0e0; /* light gray */
     }
 
     th,
@@ -82,6 +80,9 @@ $font-size: 14px;
     td.selected {
         background-color: LightSkyBlue; /* light gray */
     }
+}
+.wsgrid__row.selected_row td {
+    background-color: #e0e0e0; /* light gray */
 }
 .wsgrid__row_odd {
     background-color: lightcyan;
