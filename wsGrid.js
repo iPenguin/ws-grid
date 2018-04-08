@@ -1705,13 +1705,20 @@ export class Grid extends Object_Base {
             this.events.header_click.call( this, column_name );
         }
         else {
+            this.sort_direction = ( this.sort_direction == 'asc' ? 'desc' : 'asc' );
             this._sort_data( column_name, this.sort_direction );
             this.refresh();
         }
     }
 
     _sort_data( column_name = '', sort_order = 'asc' ) {
+        this.sort_direction = sort_order.toLowerCase();
+
         let has_grouping = ( this.grouping.columns.length > 0 ? true : false );
+
+        if( ! has_grouping && column_name == '' ) {
+            return;
+        }
 
         this.data.sort( ( a, b ) => {
             if( has_grouping ) {
@@ -1739,8 +1746,8 @@ export class Grid extends Object_Base {
             }
         } );
 
+        // Hold the name of the sort column for column decorations.
         this.sort_column = column_name;
-        this.sort_direction = ( this.sort_direction == 'asc' ? 'desc' : 'asc' );
     }
 
     /**
@@ -1754,10 +1761,8 @@ export class Grid extends Object_Base {
         let a_value = this._get_value( column_name, a );
         let b_value = this._get_value( column_name, b );
 
-        this.sort_direction = this.sort_direction.toLowerCase();
         if( this.sort_direction == 'asc' ) {
-
-            if( a_value >= b_value ) {
+            if( a_value > b_value ) {
                 return 1;
             }
             else {
@@ -1766,7 +1771,7 @@ export class Grid extends Object_Base {
         }
         else if( this.sort_direction == 'desc' ) {
 
-            if( a_value <= b_value ) {
+            if( a_value < b_value ) {
                 return 1;
             }
             else {
@@ -1893,7 +1898,6 @@ export class Grid extends Object_Base {
                 value = moment( value, 'MM/DD/YYYY' ).format( 'YYYY-MM-DD' );
             }
         }
-
 
         if( properties.type == 'dropdown' ) {
             let options = '';
