@@ -129,6 +129,19 @@ let grid_defaults = {
 };
 
 /**
+ * This structure contains data about the cells.
+ * each cell has a changed flag and classes placeholder.
+ *
+ * These contain the state of the cell so that when we refresh
+ * the grid those changes are not lost.
+ */
+let cell_metadata = {
+    changed:    false,
+    last_value: undefined,
+    classes:    '',
+};
+
+/**
  * Convert HTML entities into encoded elements that can be displayed on the page.
  * @param  {String} string - String we are parsing
  * @return {String}        - New string with the HTML elements converted.
@@ -184,6 +197,7 @@ export class Grid extends Object_Base {
         this.event_trigger = undefined;
 
         this.data = [];
+        this.metadata = [];
         this.totals_data = undefined;
 
         this.is_filtered = false;
@@ -573,6 +587,17 @@ export class Grid extends Object_Base {
 
         if( typeof( data ) != 'undefined' ) {
             this.data = data;
+            this.metadata = [];
+
+            let size = this.data.length;
+
+            for( let i = 0; i < size; i++ ) {
+                let row = {};
+                for( let c = 0; c < this.columns.order.length; c++ ) {
+                    row[ this.columns.order[ c ] ] = Object.assign( {}, cell_metadata ); // clone the metadata for each cell.
+                }
+                this.metadata.push( row );
+            }
         }
 
         this._sort_data( '', 'asc' );
@@ -1110,8 +1135,34 @@ export class Grid extends Object_Base {
      */
     append_rows( records ) {
 
-        //change data in place.
-        this.data.splice( this.data.length, 0, ...records );
+        // To avoid issues with wrong column counts and additional columns
+        // only pull in data for the columns defined in the grid.
+        let new_records = [];
+
+        for( let i = 0; i < records.length; i++ ) {
+            let record = {};
+            for( let c = 0; c < this.columns.order.length; c++ ) {
+                let column_name = this.columns.order[ c ];
+                record[ column_name ] = records[ i ][ column_name ];
+            }
+
+            new_records.push( record );
+        }
+
+        let old_length = this.data.length;
+        //change data in place, add new elements...
+        this.data.splice( old_length, 0, ...new_records );
+
+        let new_length = this.data.length;
+
+        for( let i = old_length; i < new_length; i++ ) {
+            let row = {};
+            for( let c = 0; c < this.columns.order.length; c++ ) {
+                // clone the metadata for each cell.
+                row[ this.columns.order[ c ] ] = Object.assign( {}, cell_metadata );
+            }
+            this.metadata.push( row );
+        }
 
         let body = this.grid.querySelector( `.${wsgrid_body}` );
         body.innerHTML = this._generate_rows();
@@ -1126,6 +1177,7 @@ export class Grid extends Object_Base {
         for( let i = 0; i < rows.length; i++ ) {
             let row = rows[ i ];
             this.data.splice( row, 1 );
+            this.metadata.splice( row, 1 );
         }
 
         this.refresh();
@@ -1176,13 +1228,20 @@ export class Grid extends Object_Base {
      * @param {Mixed}  value       - Value to set in the row, column.
      */
     set_cell( column_name, row_id, value ) {
-        let old_value = this.data[ row_id ][ column_name ];
+        if( typeof( this.data[ row_id ] ) == 'undefined' ) {
+            throw new Error( "Cannot find row in data grid" );
+        }
+        if( ! this.data[ row_id ].hasOwnProperty( column_name ) ) {
+            throw new Error( "Cannot find column in row data" );
+        }
 
+        let old_value = this.data[ row_id ][ column_name ];
         if( old_value == value ) {
             return;
         }
 
         this.data[ row_id ][ column_name ] = value;
+        this.metadata[ row_id ][ column_name ].changed = true;
         this.refresh();
     }
 
@@ -1892,7 +1951,8 @@ export class Grid extends Object_Base {
 
         cell.innerHTML = new_value;
 
-        let old_value = cell.dataset.oldvalue;
+        this.metadata[ row_id ][ column_name ].changed = true;
+
 
         let e = new Event( `${wsgrid_data}.cell_changed`, { bubbles: true } );
         e.changes = [ {
