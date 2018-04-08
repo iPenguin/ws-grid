@@ -714,7 +714,7 @@ export class Grid extends Object_Base {
 
         if( this.multi_select ) {
             row_html += `<${column_type} class="${wsgrid_multiselect}_cell ${column_classes}" style="position:sticky;left:0;z-index:5;">`
-                        + this._generate_multiselect( record_id ) + `</${column_type}>`;
+                    + this._generate_multiselect( ( is_header ? 'header' : record_id ) ) + `</${column_type}>`;
         }
 
         for( let column = 0; column < this.columns.order.length; column++ ) {
