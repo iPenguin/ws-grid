@@ -2072,6 +2072,9 @@ export class Grid extends Object_Base {
 
         this.metadata[ row_id ][ column_name ].changed = true;
 
+        if( typeof( this.events.after_edit ) == 'function' ) {
+            this.events.after_edit.call( this, row_id, column_name, new_value );
+        }
 
         let e = new Event( `${wsgrid_data}.cell_changed`, { bubbles: true } );
         e.changes = [ {
