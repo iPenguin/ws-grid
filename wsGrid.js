@@ -2401,6 +2401,10 @@ export class Grid extends Object_Base {
      * @return {String}               - Formatted value
      */
     format_currency( cell_value ) {
+        if( typeof( cell_value ) == 'undefined' ) {
+            return '';
+        }
+
         // Check for a user defined currency function first.
         if( typeof( this.currency ) == 'function' ) {
             return this.currency( cell_value );
