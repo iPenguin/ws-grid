@@ -846,6 +846,12 @@ export class Grid extends Object_Base {
 
         this.columns.width[ column_name ] = width;
         this._calculate_columns( true );
+        let e = new Event( 'row.resized', { bubbles: true } );
+        e.data = {
+            column: column_name,
+        };
+        this.grid.dispatchEvent( e );
+
         this.refresh();
     }
 
@@ -884,7 +890,7 @@ export class Grid extends Object_Base {
         this.data.splice( row_id, 1 );
         this.data.splice( previous_row, 0, row_data );
 
-        let e = new Event( '${wsgrid_data}.row_moved', { bubbles: true } );
+        let e = new Event( `${wsgrid_data}.row_moved`, { bubbles: true } );
         e.data = {
             row:       row_id,
             previous:  previous_row,
