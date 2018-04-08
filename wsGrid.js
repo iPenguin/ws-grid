@@ -48,7 +48,7 @@
  *     after_save                            - After the editor has closed and the data has been saved.
  *
  *     before_inline_opened( row, column_name, value, row_data )     - return '' to prevent a dialog opening.
- *     before_inline_closed( row, column_name, value, row_data )     - can prevent the editor from closing and loosing focus.
+ *     before_close( row, column_name, value, row_data )     - can prevent the editor from closing and loosing focus.
  *     before_inline_submitted( row, column_name, value, row_data )  - can manipulate the data before it's saved to the local data model.
  * filters:         - An object with filtering functions.
  * height:          - Height of grid. Set the height to an empty string to allow the grid to be the height of the data.
@@ -1857,16 +1857,15 @@ export class Grid extends Object_Base {
      * @emits  {wsgri__data.cell_changed} emits event when the editor is closed and the data change has been saved.
      */
     _close_editor( event, cell ) {
-        if( typeof( this.events.before_inline_closed ) == 'function' ) {
-            if( ! this.events.before_inline_closed.call( this, row, column, value, row_data ) ) {
-                return false;
-            }
-        }
-
-        //TODO: is there a better way to get the recordId instead of hard coding it?
         let row_id = cell.dataset.recordid;
         let column_name = cell.dataset.column;
         let new_value = cell.firstChild.value;
+
+        if( typeof( this.events.before_close ) == 'function' ) {
+            if( ! this.events.before_close.call( this, row_id, column_name, new_value ) ) {
+                return false;
+            }
+        }
 
         if( cell.firstChild.type == 'checkbox' ) {
             if( cell.firstChild.checked ) {
@@ -2104,6 +2103,8 @@ export class Grid extends Object_Base {
      * @param  {Object} settings     - Optional. Settings object containing properties for columns.
      * @return {Object}              - Contains all settings for all column properties.
      *                                 NOTE: Only returned when no settings object is passed in.
+     *
+     * Note: your data types should be correct for the numbers and boolean values.
      *
      * ie. Combining the following objects would result in the final object below:
      *
