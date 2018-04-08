@@ -227,7 +227,7 @@ export class Grid extends Object_Base {
         let colCount = column_model.length;
 
         this.columns = {};
-        this.column_order = [];
+        this.columns.order = [];
         this.row_order = [];
 
         // loop through the columns and create a set of lookup tables for all properties.
@@ -239,7 +239,7 @@ export class Grid extends Object_Base {
             let column_name = this.column_model[ i ].name;
 
             // Keep track of the column order.
-            this.column_order[ i ] = column_name;
+            this.columns.order[ i ] = column_name;
 
             // keep track of all properties by column name.
             for( let key of keys ) {
@@ -318,7 +318,7 @@ export class Grid extends Object_Base {
 
         // loop through the columns and gather info
         for( let i = 0; i < count; i++ ) {
-            let column_name = this.column_order[ i ];
+            let column_name = this.columns.order[ i ];
             // if( ! this.columns.visible[ column_name ] ) {
             //     continue;
             // }
@@ -332,7 +332,7 @@ export class Grid extends Object_Base {
         // calculate the widths of flexable columns.
         let remaining_width = grid_width - fixed_width;
         for( let i = 0; i < count; i++ ) {
-            let column_name = this.column_order[ i ];
+            let column_name = this.columns.order[ i ];
             // if( ! this.columns.visible[ column_name ] ) {
             //     continue;
             // }
@@ -691,8 +691,8 @@ export class Grid extends Object_Base {
                         + this._generate_multiselect( record_id ) + `</${column_type}>`;
         }
 
-        for( let column = 0; column < this.column_order.length; column++ ) {
-            let column_name = this.column_order[ column ];
+        for( let column = 0; column < this.columns.order.length; column++ ) {
+            let column_name = this.columns.order[ column ];
 
             let value = '';
 
@@ -818,8 +818,8 @@ export class Grid extends Object_Base {
      * @emits {column.moved} emits event when a column's position is changed.
      */
     set_column_position( column_name, next_element ) {
-        this.column_order.splice( this.column_order.indexOf( column_name ), 1 );
-        this.column_order.splice( this.column_order.indexOf( next_element ), 0, column_name );
+        this.columns.order.splice( this.columns.order.indexOf( column_name ), 1 );
+        this.columns.order.splice( this.columns.order.indexOf( next_element ), 0, column_name );
 
         let e = new Event( 'column.moved', { bubbles: true } );
         e.data = {
@@ -912,9 +912,9 @@ export class Grid extends Object_Base {
                 fixed_position += 20 + 7;
             }
 
-            for( let i = 0; i < this.column_order.length; i++ ) {
+            for( let i = 0; i < this.columns.order.length; i++ ) {
 
-                let current_column = this.column_order[ i ];
+                let current_column = this.columns.order[ i ];
                 if( current_column == column_name ) {
                     break;
                 }
@@ -944,8 +944,8 @@ export class Grid extends Object_Base {
                 }
             }
 
-            for( let i = this.column_order.length; i >= 0; i-- ) {
-                let current_column = this.column_order[ i ];
+            for( let i = this.columns.order.length; i >= 0; i-- ) {
+                let current_column = this.columns.order[ i ];
                 if( current_column == column_name ) {
                     break;
                 }
@@ -1917,20 +1917,19 @@ export class Grid extends Object_Base {
         let column_id = cell.dataset.columnid;
 
         let next_id = Number( column_id ) + 1;
-        for( let i = next_id; i <= this.column_order.length; i++ ) {
+        for( let i = next_id; i <= this.columns.order.length; i++ ) {
             //if we've checked all the fields in this record move on to the next record...
-            if( i == this.column_order.length ) {
+            if( i == this.columns.order.length ) {
                 current_record++;
                 i = 0;
             }
 
-            let current_column = this.column_order[ i ];
+            let current_column = this.columns.order[ i ];
             let editable = this.columns.editable[ current_column ];
             if( typeof( editable ) == 'function' ) {
                 editable = editable( current_record, current_column, this.data );
             }
 
-            // If we have found the next editable cell use the dblclick event to open the editor.
             if( this.columns.visible[ current_column ] && editable ) {
                 let e = new Event( 'dblclick', { bubbles: true } );
                 let target = this.grid.querySelector( `.${wsgrid_row}_${current_record} td.${wsgrid_column}_${current_column}` );
@@ -1958,16 +1957,15 @@ export class Grid extends Object_Base {
             //if we've checked all the fields in this record move on to the next record...
             if( i == 0 ) {
                 current_record--;
-                i = this.column_order.length - 1;
+                i = this.columns.order.length - 1;
             }
 
-            let current_column = this.column_order[ i ];
+            let current_column = this.columns.order[ i ];
             let editable = this.columns.editable[ current_column ];
             if( typeof( editable ) == 'function' ) {
                 editable = editable( current_record, current_column, this.data );
             }
 
-            // If we have found the previous editable cell use the dblclick event to open the editor.
             if( this.columns.visible[ current_column ] && editable ) {
                 let e = new Event( 'dblclick', { bubbles: true } );
                 let target = this.grid.querySelector( `.${wsgrid_row}_${current_record} td.${wsgrid_column}_${current_column}` );
