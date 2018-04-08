@@ -818,6 +818,8 @@ export class Grid extends Object_Base {
 
             let alignment = this.columns.align[ column_name ];
             row_html += `<${column_type} class="${wsgrid_column} ${wsgrid_cell} ${column_classes} ${wsgrid_column}_${column_name}`
+                        + ( this.columns.frozen_left[ column_name ] ? ' frozen_left' : '' )
+                        + ( this.columns.frozen_right[ column_name ] ? ' frozen_right' : '' )
                         + ( is_header ? '' : ` ${user_classes}"` )
                         + ` id="${wsgrid_column}_${record_id}_${column_name}"`
                         + tooltip
