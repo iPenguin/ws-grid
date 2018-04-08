@@ -2430,6 +2430,15 @@ export class Grid extends Object_Base {
     }
 
     /**
+     * format the cell as a delete button.
+     * @param  {String} cell_value     - Value to format
+     * @return {String}                - Formatted value
+     */
+    format_delete( cell_value ) {
+        return '<i class="fa fa-trash-o fa-lg u_error_icon" title="Delete this record"></i>';
+    }
+
+    /**
      * Format the data by hiding all zero values.
      *
      * @param  {String/Number} cell_value   - value of the cell.
