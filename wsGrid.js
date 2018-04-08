@@ -2310,7 +2310,13 @@ export class Grid extends Object_Base {
             let keys = Object.keys( this.columns );
 
             for( let key of keys ) {
-                if( typeof( settings[ key ] ) !== 'undefined' ) {
+                // Array for column order -- only load in our column order if we have one.
+                if( Array.isArray( this.columns[ key ] )
+                    && ( Array.isArray( settings[ key ] ) && settings[ key ].length > 0 )
+                ) {
+                    this.columns[ key ] = settings[ key ];
+                }
+                else if( typeof( settings[ key ] ) !== 'undefined' ) {
                     Object.assign( this.columns[ key ], settings[ key ] );
                 }
             }
