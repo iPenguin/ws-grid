@@ -1302,9 +1302,18 @@ export class Grid extends Object_Base {
             return this.data[ row_id ][ column_name ];
         }
         else {
+            if( typeof( this.data[ row_id ] ) == 'undefined' ) {
+                return new Error( `Row ${row_id} doesn't exist in the data.` );
+            }
+            if( ! this.data[ row_id ].hasOwnProperty( column_name ) ) {
+                return new Error( `${column_name} doesn't exist.` );
+            }
+
+            let old_value = this.data[ row_id ][ column_name ];
+
             this.set_cell( column_name, row_id, value );
             let e = new Event( `${wsgrid_data}.cell_changed`, { bubbles: true } );
-            e.change = [ {
+            e.changes = [ {
                 row:       row_id,
                 column:    column_name,
                 new_value: value,
