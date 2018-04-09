@@ -2055,7 +2055,9 @@ export class Grid extends Object_Base {
 
         // Let the user edit right away.
         cell.firstChild.focus();
-        cell.firstChild.select();
+        if( cell.firstChild.tagName == 'INPUT' ) {
+            cell.firstChild.select();
+        }
     }
 
     /**
