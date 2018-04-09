@@ -137,7 +137,7 @@ let grid_defaults = {
  */
 let cell_metadata = {
     changed:    false,
-    last_value: undefined,
+    old_value:  undefined,
     classes:    '',
 };
 
@@ -1306,6 +1306,7 @@ export class Grid extends Object_Base {
 
         this.data[ row_id ][ column_name ] = value;
         this.metadata[ row_id ][ column_name ].changed = true;
+        this.metadata[ row_id ][ column_name ].old_value = old_value;
         this.refresh();
     }
 
@@ -2115,6 +2116,7 @@ export class Grid extends Object_Base {
         }
 
         this.metadata[ row_id ][ column_name ].changed = true;
+        this.metadata[ row_id ][ column_name ].old_value = old_value;
 
         if( typeof( this.events.after_edit ) == 'function' ) {
             this.events.after_edit.call( this, row_id, column_name, new_value );
