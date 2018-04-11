@@ -1431,6 +1431,20 @@ export class Grid extends Object_Base {
     }
 
     /**
+     * Clear the changes flagged in the metadata.
+     * @type {Array}
+     */
+    clear_changes() {
+        for( let i = 0; i < this.data.length; i++ ) {
+            let columns = this.columns.order;
+            for( let c = 0; c < columns.length; c++ ) {
+                let column = columns[ c ];
+                this.metadata[ i ][ column ].changed = false;
+            }
+        }
+    }
+
+    /**
      * Return the row Data for the given rows.
      * If no row is selected return an empty array.
      * @param  {Array}  rows   - list of rows to get data for.
