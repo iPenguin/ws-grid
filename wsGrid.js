@@ -624,6 +624,8 @@ export class Grid extends Object_Base {
 
         this._sort_data( '', 'asc' );
         this.refresh();
+        let e = new Event( `${wsgrid_data}.recordset_changed`, { bubbles: true } );
+        this.grid.dispatchEvent( e );
     }
 
     /**
@@ -1209,6 +1211,9 @@ export class Grid extends Object_Base {
 
         let body = this.grid.querySelector( `.${wsgrid_body}` );
         body.innerHTML = this._generate_rows();
+
+        let e = new Event( `${wsgrid_data}.recordset_changed`, { bubbles: true } );
+        this.grid.dispatchEvent( e );
     }
 
     /**
@@ -1224,6 +1229,8 @@ export class Grid extends Object_Base {
         }
 
         this.refresh();
+        let e = new Event( `${wsgrid_data}.recordset_changed`, { bubbles: true } );
+        this.grid.dispatchEvent( e );
     }
 
     /**
@@ -1341,7 +1348,7 @@ export class Grid extends Object_Base {
                 new_value: value,
                 old_value: old_value,
             } ];
-            document.dispatchEvent( e );
+            this.grid.dispatchEvent( e );
         }
     }
 
