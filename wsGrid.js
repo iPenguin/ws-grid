@@ -673,7 +673,10 @@ export class Grid extends Object_Base {
                                     + '</td></tr>';
                             }
                             else {
-                                row_html += this.grouping.header[ column ];
+                                row_html += `<tr class="${wsgrid_row}_group_header ${wsgrid_row}_group_header_${column}">`
+                                    + `<td class="${wsgrid_column}_group_header ${wsgrid_column}_group_header_${column}">`
+                                    + this.grouping.header[ column ]
+                                    + '</td></tr>';
                             }
                         }
                     }
@@ -697,10 +700,16 @@ export class Grid extends Object_Base {
                         flag_new_group = true;
                         if( typeof( this.grouping.footer ) !== 'undefined' ) {
                             if( typeof( this.grouping.footer[ column ] ) == 'function' ) {
-                                row_html += this.grouping.footer[ column ]( column, this.data[ i ][ column ], this.data[ i ] );
+                                row_html += `<tr class="${wsgrid_row}_group_footer ${wsgrid_row}_group_footer_${column}">`
+                                   + `<td class="${wsgrid_column}_group_footer ${wsgrid_column}_group_footer_${column}">`
+                                   + this.grouping.footer[ column ]( column, this.data[ i ][ column ], this.data[ i ] )
+                                   + '</td></tr>';
                             }
                             else {
-                                row_html += this.grouping.footer[ column ];
+                                row_html += `<tr class="${wsgrid_row}_group_footer ${wsgrid_row}_group_footer_${column}">`
+                                   + `<td class="${wsgrid_column}_group_footer ${wsgrid_column}_group_footer_${column}">`
+                                   + this.grouping.footer[ column ]
+                                   + '</td></tr>';
                             }
                         }
                     }

@@ -84,10 +84,16 @@ $font-size: 14px;
 .wsgrid__row.selected_row td {
     background-color: #e0e0e0; /* light gray */
 }
-.wsgrid__row_group_header {
+.wsgrid__row_group_header,
+.wsgrid__row_group_footer {
     width: 100%;
 }
 td.wsgrid__column_group_header {
+    padding: 0;
+    width: 100%;
+}
+td.wsgrid__column_group_footer {
+    text-align: right;
     padding: 0;
     width: 100%;
 }
