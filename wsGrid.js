@@ -667,7 +667,10 @@ export class Grid extends Object_Base {
                         flag_new_group = true;
                         if( typeof( this.grouping.header ) !== 'undefined' ) {
                             if( typeof( this.grouping.header[ column ] ) == 'function' ) {
-                                row_html += this.grouping.header[ column ]( column, this.data[ i ][ column ], this.data[ i ] );
+                                row_html += `<tr class="${wsgrid_row}_group_header ${wsgrid_row}_group_header_${column}">`
+                                    + `<td class="${wsgrid_column}_group_header ${wsgrid_column}_group_header_${column}">`
+                                    + this.grouping.header[ column ]( column, this.data[ i ][ column ], this.data[ i ] )
+                                    + '</td></tr>';
                             }
                             else {
                                 row_html += this.grouping.header[ column ];
