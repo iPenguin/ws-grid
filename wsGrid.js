@@ -534,7 +534,7 @@ export class Grid extends Object_Base {
             this.row_seperator.id = `${wsgrid_header}_row_resize_visual`;
         }
 
-        this.row_seperator.dataset.source = e.target.dataset.recordid;
+        this.row_seperator.dataset.source = e.target.dataset.rowid;
         let rect = this.grid.getBoundingClientRect();
         this.row_seperator.style.left = `${rect.left}px`;
         this.row_seperator.style.width = `${rect.width}px`;
@@ -592,7 +592,7 @@ export class Grid extends Object_Base {
         let previous_record = 0;
 
         if( previous_row ) {
-            previous_record = previous_row.dataset.recordid;
+            previous_record = previous_row.dataset.rowid;
         }
 
         this.set_row_position( this.row_seperator.dataset.source, previous_record );
@@ -721,19 +721,19 @@ export class Grid extends Object_Base {
     }
 
     /**
-     * Generate the HTML for the given record_id.
-     * @param  {Number} record_id      - Id of the record to generate HTML for.
+     * Generate the HTML for the given row_id.
+     * @param  {Number} row_id         - Id of the record to generate HTML for.
      * @param  {Object} data           - All key, value pairs to generate HTML for.
      * @param  {String} row_classes    - List of classes to add to the row.
      * @param  {String} column_classes - List of classes to add to each column
      * @return {String}                - All the HTML for this row in a string.
      */
-    _generate_row( record_id, data, row_classes = '', column_classes = '', is_header = false ) {
+    _generate_row( row_id, data, row_classes = '', column_classes = '', is_header = false ) {
         /*********************************************************************************
          * Generate Row
          *********************************************************************************/
-        let row_html = `<tr class="${wsgrid_row} ${wsgrid_row}_${record_id} ${row_classes}"`
-                    + ( record_id == '' ? '' : `data-recordid="${record_id}"` )
+        let row_html = `<tr class="${wsgrid_row} ${wsgrid_row}_${row_id} ${row_classes}"`
+                    + ( row_id == '' ? '' : `data-rowid="${row_id}"` )
                     //+ ` style="min-width:${this.min_row_width}px;`
                     + ( this.overflow ? '' : `max-width:${this.min_row_width};` )
                     + `">`;
@@ -744,127 +744,143 @@ export class Grid extends Object_Base {
         }
 
         if( this.row_reorder ) {
-            row_html += `<${column_type} class="${wsgrid_column}_row_move_target" data-recordid="${record_id}"></${column_type}>`;
+            row_html += `<${column_type} class="${wsgrid_column}_row_move_target" data-rowid="${row_id}"></${column_type}>`;
         }
 
         if( this.multi_select ) {
             row_html += `<${column_type} class="${wsgrid_multiselect}_cell ${column_classes}" style="position:sticky;left:0;z-index:5;">`
-                    + this._generate_multiselect( ( is_header ? 'header' : record_id ) ) + `</${column_type}>`;
+                    + this._generate_multiselect( ( is_header ? 'header' : row_id ) ) + `</${column_type}>`;
         }
 
         for( let column = 0; column < this.columns.order.length; column++ ) {
-            let column_name = this.columns.order[ column ];
-
-            let value = '';
-
-            let sort_styling = '';
-            let move_handle = '';
-            let resize_handle = '';
-
-            if( is_header ) {
-                let decoration_side = 'left';
-                if( column_name == this.sort_column ) {
-                    if( this.columns.align[ column_name ] == 'left' ) {
-                        decoration_side = 'right';
-                    }
-                    sort_styling = `<span class="${wsgrid_header}_sort" style="${decoration_side}:5px"><i class="fa fa-sort-${this.sort_direction} fa-sm"></i></span>`;
-                }
-
-                // if this isn't the first column in a multi_select then...
-                if( this.multi_select && column == 0 ) {
-                    move_handle = '';
-                    resize_handle = '';
-                }
-                else {
-                    // if the column can be re-ordered and the column isn't frozen, include the move handler.
-                    if( this.column_reorder
-                        && ( ! this.columns.frozen_right[ column_name ] && ! this.columns.frozen_left[ column_name ] ) ) {
-                        move_handle = `<span class='${wsgrid_header}_column_move_target' data-column='${column_name}'></span>`;
-                    }
-
-                    if( this.column_resize ) {
-                        resize_handle = `<span class="${wsgrid_header}_column_resize" data-column="${column_name}"></span>`;
-                    }
-                }
-
-                value = `${move_handle} ${this.columns.label[ column_name ]} ${sort_styling} ${resize_handle}`;
-            }
-            else {
-
-                // if there is data to display figure out how to display it.
-                if( typeof( data[ column_name ] ) !== 'undefined' ) {
-
-                    if( this.columns.type[ column_name ] == 'dropdown' ) {
-                        let val = data[ column_name ];
-                        value = this.columns.options[ column_name ][ val ];
-                    }
-                    else if( typeof( this.columns.format[ column_name ] ) == 'string' ) {
-                        let formatType = this.columns.format[ column_name ];
-                        value = this[ `format_${formatType.toLowerCase()}` ]( data[ column_name ] );
-                    }
-                    else if( typeof( this.columns.format[ column_name ] ) == 'function' ) {
-                        value = this.columns.format[ column_name ]( data[ column_name ], data );
-                    }
-                    else {
-                        value = data[ column_name ];
-                    }
-                }
-                // a column can display data even if it doesn't have data from the backend.
-                else if( typeof( this.columns.format[ column_name ] ) !== 'undefined' ) {
-                    // display data from a user function
-                    if( typeof( this.columns.format[ column_name ] ) == 'function' ) {
-                        value = this.columns.format[ column_name ]( data[ column_name ], data );
-                    }
-                    // display data from a built-in function
-                    else {
-                        let formatType = this.columns.format[ column_name ];
-                        value = this[ `format_${formatType.toLowerCase()}` ]( data[ column_name ] );
-                    }
-                }
-            }
-
-            /*********************************************************************************
-             * Generate Columns
-             *********************************************************************************/
-            let user_classes = '';
-            if( typeof( this.columns.classes[ column_name ] ) == 'function' ) {
-                user_classes = this.columns.classes[ column_name ]( record_id, value, data );
-            }
-            else {
-                user_classes = this.columns.classes[ column_name ];
-            }
-
-            let display = '';
-            if( ! this.columns.visible[ column_name ] ) {
-                display = 'display: none;';
-            }
-
-            let frozen_style = this._generate_frozen_styles( column_name );
-
-            //TODO: if( ! header ) {
-            let user_styles = this._generate_user_styles( record_id, column_name, data );
-            // }
-
-            let tooltip = '';
-            if( this.columns.tooltip[ column_name ] !== ''
-                && is_header ) {
-                tooltip = ` title="${this.columns.tooltip[ column_name ]}"`;
-            }
-
-            let alignment = this.columns.align[ column_name ];
-            row_html += `<${column_type} class="${wsgrid_column} ${wsgrid_cell} ${column_classes} ${wsgrid_column}_${column_name}`
-                        + ( this.columns.frozen_left[ column_name ] ? ' frozen_left' : '' )
-                        + ( this.columns.frozen_right[ column_name ] ? ' frozen_right' : '' )
-                        + ( is_header ? '' : ` ${user_classes}"` )
-                        + ` id="${wsgrid_column}_${record_id}_${column_name}"`
-                        + tooltip
-                        + ` data-recordid='${record_id}' data-column='${column_name}' data-columnid="${column}"`
-                        + ` style="${display} ${frozen_style} width:${this.columns.width[ column_name ]}px;text-align:${alignment};${user_styles};">`
-                        + `${value}</${column_type}>`;
+            row_html += this._generate_cell( row_id, column, data, column_type, column_classes, is_header );
         }
         row_html += '</tr>';
 
         return row_html;
+    }
+
+    /**
+     * Generate the contents of the cell at row_id, column_id.
+     * @param  {Number}  row_id              - Row ID of the cell we're generating.
+     * @param  {Number}  column_id           - Column ID of the cell we're generating.
+     * @param  {Object}  data                - data to be displayed in the cell.
+     * @param  {String}  column_type         - Is this a header or body cell? th or td
+     * @param  {String}  [column_classes=''] - A list of classes to add to the cell.
+     * @param  {Boolean} [is_header=false]   - is this a header cell?
+     * @return {String}                      - HTML string containing the contents of the cell.
+     */
+    _generate_cell( row_id, column_id, data, column_type, column_classes = '', is_header = false ) {
+        let column_name = this.columns.order[ column_id ];
+
+        let cell_html = '';
+        let value = '';
+
+        let sort_styling = '';
+        let move_handle = '';
+        let resize_handle = '';
+
+        if( is_header ) {
+            let decoration_side = 'left';
+            if( column_name == this.sort_column ) {
+                if( this.columns.align[ column_name ] == 'left' ) {
+                    decoration_side = 'right';
+                }
+                sort_styling = `<span class="${wsgrid_header}_sort" style="${decoration_side}:5px"><i class="fa fa-sort-${this.sort_direction} fa-sm"></i></span>`;
+            }
+
+            // if this isn't the first column in a multi_select then...
+            if( this.multi_select && column_id == 0 ) {
+                move_handle = '';
+                resize_handle = '';
+            }
+            else {
+                // if the column can be re-ordered and the column isn't frozen, include the move handler.
+                if( this.column_reorder
+                    && ( ! this.columns.frozen_right[ column_name ] && ! this.columns.frozen_left[ column_name ] ) ) {
+                    move_handle = `<span class='${wsgrid_header}_column_move_target' data-column='${column_name}'></span>`;
+                }
+
+                if( this.column_resize ) {
+                    resize_handle = `<span class="${wsgrid_header}_column_resize" data-column="${column_name}"></span>`;
+                }
+            }
+
+            value = `${move_handle} ${this.columns.label[ column_name ]} ${sort_styling} ${resize_handle}`;
+        }
+        else {
+
+            // if there is data to display figure out how to display it.
+            if( typeof( data[ column_name ] ) !== 'undefined' ) {
+
+                if( this.columns.type[ column_name ] == 'dropdown' ) {
+                    let val = data[ column_name ];
+                    value = this.columns.options[ column_name ][ val ];
+                }
+                else if( typeof( this.columns.format[ column_name ] ) == 'string' ) {
+                    let formatType = this.columns.format[ column_name ];
+                    value = this[ `format_${formatType.toLowerCase()}` ]( data[ column_name ] );
+                }
+                else if( typeof( this.columns.format[ column_name ] ) == 'function' ) {
+                    value = this.columns.format[ column_name ]( data[ column_name ], data );
+                }
+                else {
+                    value = data[ column_name ];
+                }
+            }
+            // a column can display data even if it doesn't have data from the backend.
+            else if( typeof( this.columns.format[ column_name ] ) !== 'undefined' ) {
+                // display data from a user function
+                if( typeof( this.columns.format[ column_name ] ) == 'function' ) {
+                    value = this.columns.format[ column_name ]( data[ column_name ], data );
+                }
+                // display data from a built-in function
+                else {
+                    let formatType = this.columns.format[ column_name ];
+                    value = this[ `format_${formatType.toLowerCase()}` ]( data[ column_name ] );
+                }
+            }
+        }
+
+        /*********************************************************************************
+         * Generate Columns
+         *********************************************************************************/
+        let user_classes = '';
+        if( typeof( this.columns.classes[ column_name ] ) == 'function' ) {
+            user_classes = this.columns.classes[ column_name ]( row_id, value, data );
+        }
+        else {
+            user_classes = this.columns.classes[ column_name ];
+        }
+
+        let display = '';
+        if( ! this.columns.visible[ column_name ] ) {
+            display = 'display: none;';
+        }
+
+        let frozen_style = this._generate_frozen_styles( column_name );
+
+        let user_styles = this._generate_user_styles( row_id, column_name, data );
+
+        let tooltip = '';
+        if( this.columns.tooltip[ column_name ] !== ''
+            && is_header
+        ) {
+            tooltip = ` title="${this.columns.tooltip[ column_name ]}"`;
+        }
+
+        let alignment = this.columns.align[ column_name ];
+        cell_html += `<${column_type} class="${wsgrid_column} ${wsgrid_cell} ${column_classes} ${wsgrid_column}_${column_name}`
+            + ( this.columns.frozen_left[ column_name ] ? ' frozen_left' : '' )
+            + ( this.columns.frozen_right[ column_name ] ? ' frozen_right' : '' )
+            + ( is_header ? '' : ` ${user_classes}"` )
+            + ` id="${wsgrid_column}_${row_id}_${column_name}"`
+            + tooltip
+            + ` data-rowid='${row_id}' data-column='${column_name}' data-columnid="${column_id}"`
+            + ` style="${display} ${frozen_style} width:${this.columns.width[ column_name ]}px;text-align:${alignment};${user_styles};">`
+            + `${value}</${column_type}>`;
+
+        return cell_html;
     }
 
     /**
@@ -1089,7 +1105,7 @@ export class Grid extends Object_Base {
         }
 
         // Class order makes a difference here:
-        return `<input class="${wsgrid_multiselect}_${class_name} ${wsgrid_multiselect}_checkbox" type="checkbox" data-recordid="${row_id}">`;
+        return `<input class="${wsgrid_multiselect}_${class_name} ${wsgrid_multiselect}_checkbox" type="checkbox" data-rowid="${row_id}">`;
     }
 
     /**
@@ -1121,6 +1137,37 @@ export class Grid extends Object_Base {
 
         return this._generate_row( '', this.totals_data, `${wsgrid_totals}`, `${wsgrid_totals}_column` );
     }
+
+    // restripe_table() {
+    //     let zebra = 0;
+    //     for( let i = 0; i < this.data.length; i++ ) {
+    //         let row = document.getElementsByClassName( `${wsgrid_row}_${i}` )[ 0 ];
+    //         let count =  this.columns.order.length;
+    //         console.log( "table", typeof( row ) );
+    //         if( row == null ) {
+    //             continue;
+    //         }
+    //
+    //         for( let c = 0; c < count; c++ ) {
+    //             let column_name = this.columns.order[ c ];
+    //             let cell = document.getElementById( `${wsgrid_column}_${i}_${column_name}` );
+    //
+    //             if( cell == null ) {
+    //                 continue;
+    //             }
+    //
+    //             if( zebra % 2 == 0 ) {
+    //                 cell.classList.remove( `${wsgrid_row}_odd` );
+    //                 cell.classList.add( `${wsgrid_row}_even` );
+    //             }
+    //             else {
+    //                 cell.classList.remove( `${wsgrid_row}_even` );
+    //                 cell.classList.add( `${wsgrid_row}_odd` );
+    //             }
+    //         }
+    //         zebra++;
+    //     }
+    // }
 
     /**
      * Create a filter and apply it to the data.
@@ -1184,6 +1231,37 @@ export class Grid extends Object_Base {
         let event = document.createEvent( 'HTMLEvents' );
         event.initEvent( 'load_complete', true, true );
         this.grid.dispatchEvent( event );
+    }
+
+    /**
+     * Refresh the contents of just the cell at row_id, column_name.
+     * @param  {[type]} row_id      [description]
+     * @param  {[type]} column_name [description]
+     * @return {[type]}             [description]
+     */
+    refresh_cell( row_id, column_name, recreate_cell = true ) {
+        let rows = document.getElementsByClassName( `${wsgrid_row}_${row_id}` );
+        let row = rows[ 0 ];
+        let cell = document.getElementById( `${wsgrid_column}_${row_id}_${column_name}` );
+
+        let column_id = cell.dataset.columnid;
+        let data = this.data[ row_id ];
+
+        if( recreate_cell ) {
+            // create a temporary wrapper so we can create the cell we really want.
+            let temp = document.createElement( 'tr' );
+            let cell_html = this._generate_cell( row_id, column_id, data, cell.tagName );
+            temp.innerHTML = cell_html;
+
+            let newCell = temp.firstChild;
+            row.replaceChild( newCell, cell );
+        }
+        else {
+            row.removeChild( cell );
+            if( row.children.length <= 0 ) {
+                row.parentElement.removeChild( row );
+            }
+        }
     }
 
     /**
@@ -1280,6 +1358,10 @@ export class Grid extends Object_Base {
      * @param  {Array}  data            - Array of data including the key field to update.
      */
     update_records( unique_key, updated_data ) {
+        if( ! Array.isArray( updated_data ) ) {
+            throw new Error( "data isn't an array" );
+        }
+
         let updated_count = updated_data.length;
         let count = this.data.length;
 
@@ -1294,12 +1376,12 @@ export class Grid extends Object_Base {
                     for( let k = 0; k < keys.length; k++ ) {
                         let key = keys[ k ];
                         this.data[ j ][ key ] = updated_data[ i ][ key ];
+                        this.refresh_cell( j, key );
                     }
                     break;
                 }
             }
         }
-        this.refresh();
     }
 
     /**
@@ -1315,7 +1397,7 @@ export class Grid extends Object_Base {
             throw new Error( "Cannot find row in data grid" );
         }
         if( ! this.data[ row_id ].hasOwnProperty( column_name ) ) {
-            throw new Error( "Cannot find column in row data" );
+            throw new Error( "Cannot find column in row data", column_name );
         }
 
         let old_value = this.data[ row_id ][ column_name ];
@@ -1326,7 +1408,8 @@ export class Grid extends Object_Base {
         this.data[ row_id ][ column_name ] = value;
         this.metadata[ row_id ][ column_name ].changed = true;
         this.metadata[ row_id ][ column_name ].old_value = old_value;
-        this.refresh();
+
+        this.refresh_cell( row_id, column_name );
     }
 
     /**
@@ -1406,14 +1489,14 @@ export class Grid extends Object_Base {
 
             for( let i = 0; i < checkboxes.length; i++ ) {
                 if( checkboxes[ i ].checked ) {
-                    records.push( Number( checkboxes[ i ].dataset.recordid ) );
+                    records.push( Number( checkboxes[ i ].dataset.rowid ) );
                 }
             }
         }
         else {
             let selected_rows = this.grid.querySelectorAll( '.selected' );
             for( let i = 0; i < selected_rows.length; i++ ) {
-                records.push( Number( selected_rows[ i ].dataset.recordid ) );
+                records.push( Number( selected_rows[ i ].dataset.rowid ) );
             }
         }
 
@@ -1554,7 +1637,7 @@ export class Grid extends Object_Base {
             let e = new Event( `${wsgrid_data}.selection_changed`, { bubbles: true } );
             event.target.dispatchEvent( e );
 
-            let row = target.dataset.recordid;
+            let row = target.dataset.rowid;
             let column = target.dataset.column;
 
             if( typeof( this.events.click ) == 'function' ) {
@@ -1587,7 +1670,7 @@ export class Grid extends Object_Base {
         classList = target.classList;
 
         if( classList.contains( `${wsgrid_cell}` ) ) {
-            let row = Number( target.dataset.recordid );
+            let row = Number( target.dataset.rowid );
             let column_name = target.dataset.column;
 
             // only call the user defined function if it exists.
@@ -1950,7 +2033,7 @@ export class Grid extends Object_Base {
     _inline_editor( cell, properties ) {
         let editor = '';
 
-        let cell_value = this.data[ cell.dataset.recordid ][ properties.name ];
+        let cell_value = this.data[ cell.dataset.rowid ][ properties.name ];
 
         // Only open an editor if one isn't already open.
         if( cell.firstChild == '#text' ) {
@@ -2103,7 +2186,7 @@ export class Grid extends Object_Base {
      * @emits  {wsgri__data.cell_changed} emits event when the editor is closed and the data change has been saved.
      */
     _close_editor( event, cell ) {
-        let row_id = cell.dataset.recordid;
+        let row_id = cell.dataset.rowid;
         let column_name = cell.dataset.column;
         let new_value = cell.firstChild.value;
 
@@ -2174,7 +2257,7 @@ export class Grid extends Object_Base {
      * @emits  {dblclick} emits event to open editor on the next editable cell.
      */
     _open_next_editor( event, cell ) {
-        let current_record = cell.dataset.recordid;
+        let current_record = cell.dataset.rowid;
         let column_id = cell.dataset.columnid;
 
         let next_id = Number( column_id ) + 1;
@@ -2210,7 +2293,7 @@ export class Grid extends Object_Base {
      * @emits  {dblclick}       - Emits event to open editor on the next editable cell.
      */
     _open_previous_editor( event, cell ) {
-        let current_record = cell.dataset.recordid;
+        let current_record = cell.dataset.rowid;
         let column_id = cell.dataset.columnid;
 
         let next_id = Number( column_id ) - 1;
@@ -2246,7 +2329,7 @@ export class Grid extends Object_Base {
      * @return {[type]}      [description]
      */
     _open_up_editor( event, cell ) {
-        let current_record = cell.dataset.recordid;
+        let current_record = cell.dataset.rowid;
         let column_name = cell.dataset.column;
 
         current_record--;
@@ -2266,7 +2349,7 @@ export class Grid extends Object_Base {
      * @return {[type]}      [description]
      */
     _open_down_editor( event, cell ) {
-        let current_record = cell.dataset.recordid;
+        let current_record = cell.dataset.rowid;
         let column_name = cell.dataset.column;
 
         current_record++;
