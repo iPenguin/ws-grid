@@ -64,7 +64,10 @@ $font-size: 14px;
 
     th,
     td {
+        align-items: center;
         border-right: 1px solid black;
+        display: flex;
+        height: 22px;
         overflow: hidden;
         padding: 3px;
     	text-align: left;
