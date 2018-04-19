@@ -171,6 +171,7 @@ function _is_grid_element( target ) {
         || target.tagName == 'TR'
         || target.tagName == 'TD'
         || target.classList.contains( `${wsgrid_multiselect}_header` )
+        || target.classList.contains( `${wsgrid_header}_column_move_target` )
         || target.classList.contains( `${wsgrid_editor}_main_editor` )
     ) {
         return true;
@@ -429,7 +430,11 @@ export class Grid extends Object_Base {
         e.preventDefault();
         let column_name = this.seperator.dataset.column;
 
-        let width = Number( this.columns.width[ column_name ] ) + Number( this.seperator.dataset.width_delta );
+        let delta = Number( this.seperator.dataset.width_delta );
+        if( this.columns.frozen_right[ column_name ] ) {
+            delta *= -1;
+        }
+        let width = Number( this.columns.width[ column_name ] ) + delta;
         this.set_column_width( column_name, width );
 
         // reset delta so we don't keep changning the column width, by just clicking on it.
@@ -491,37 +496,43 @@ export class Grid extends Object_Base {
     _column_move_end( e ) {
         e.preventDefault();
 
-        let column_name = this.seperator.dataset.column;
-        let next_column = undefined;
+        // Only change the column position if we actually moved the column.
+        if( Math.abs( this.seperator.start_drag - e.pageX ) > 3 ) {
 
-        let header_row = this.grid.querySelector( 'thead tr' );
-        let children = header_row.children;
+            let column_name = this.seperator.dataset.column;
+            let next_column = undefined;
 
-        for( let i = 0; i < children.length; i++ ) {
-            let rect = children[ i ].getBoundingClientRect();
-            let split = rect.left + ( rect.width * ( 2 / 3 ) );
+            let header_row = this.grid.querySelector( 'thead tr' );
+            let children = header_row.children;
 
-            if( e.pageX > rect.left && e.pageX <= rect.right ) {
-                if( e.pageX < split ) {
-                    this.seperator.style.left = `${rect.left}px`;
-                    next_column = children[ i ];
-                    continue;
-                }
-                else {
-                    this.seperator.style.left = `${rect.right}px`;
-                    next_column = children[ i + 1 ];
-                    continue;
+            for( let i = 0; i < children.length; i++ ) {
+                let rect = children[ i ].getBoundingClientRect();
+                let split = rect.left + ( rect.width * ( 2 / 3 ) );
+
+                if( e.pageX > rect.left && e.pageX <= rect.right ) {
+                    if( e.pageX < split ) {
+                        this.seperator.style.left = `${rect.left}px`;
+                        next_column = children[ i ];
+                        continue;
+                    }
+                    else {
+                        this.seperator.style.left = `${rect.right}px`;
+                        next_column = children[ i + 1 ];
+                        continue;
+                    }
                 }
             }
+
+            let next_column_name = undefined;
+
+            if( typeof( next_column ) !== 'undefined' ) {
+                next_column_name = next_column.dataset.column;
+            }
+
+            if( column_name != next_column_name ) {
+                this.set_column_position( column_name, next_column_name );
+            }
         }
-
-        let next_column_name = undefined;
-
-        if( typeof( next_column ) !== 'undefined' ) {
-            next_column_name = next_column.dataset.column;
-        }
-
-        this.set_column_position( column_name, next_column_name );
 
         this.seperator.parentElement.removeChild( this.seperator );
         this.grid.style.cursor = '';
@@ -915,6 +926,12 @@ export class Grid extends Object_Base {
      * @emits {column.moved} emits event when a column's position is changed.
      */
     set_column_position( column_name, next_element ) {
+        if( this.columns.frozen_left[ next_element ]
+            || this.columns.frozen_right[ next_element ]
+        ) {
+            return;
+        }
+
         this.columns.order.splice( this.columns.order.indexOf( column_name ), 1 );
         this.columns.order.splice( this.columns.order.indexOf( next_element ), 0, column_name );
 
@@ -1244,6 +1261,15 @@ export class Grid extends Object_Base {
         let row = rows[ 0 ];
         let cell = document.getElementById( `${wsgrid_column}_${row_id}_${column_name}` );
 
+        if( cell === null ) {
+            if( this.columns.visible[ column_name ] == false ) {
+                return;
+            }
+            else {
+                throw new Error( "Cannot find a cell for the given column in this row: ", column_name );
+            }
+        }
+
         let column_id = cell.dataset.columnid;
         let data = this.data[ row_id ];
 
@@ -1376,12 +1402,13 @@ export class Grid extends Object_Base {
                     for( let k = 0; k < keys.length; k++ ) {
                         let key = keys[ k ];
                         this.data[ j ][ key ] = updated_data[ i ][ key ];
-                        this.refresh_cell( j, key );
+                        //this.refresh_cell( j, key );
                     }
                     break;
                 }
             }
         }
+        this.refresh();
     }
 
     /**
@@ -1409,7 +1436,8 @@ export class Grid extends Object_Base {
         this.metadata[ row_id ][ column_name ].changed = true;
         this.metadata[ row_id ][ column_name ].old_value = old_value;
 
-        this.refresh_cell( row_id, column_name );
+        //this.refresh_cell( row_id, column_name );
+        this.refresh();
     }
 
     /**
@@ -1740,6 +1768,7 @@ export class Grid extends Object_Base {
      */
     mousedown( event ) {
         let classList = event.target.classList;
+
         if( classList.contains( `${wsgrid_header}_column_resize` ) ) {
             this.drag.started = true;
             this.drag.type = 'resize';
