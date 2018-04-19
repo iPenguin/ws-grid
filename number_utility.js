@@ -35,11 +35,12 @@ export let Number_Utility = {
      * Convert a number to a dollar amount string.
      * TODO: add thousands seperator
      *
-     * @param  {Number/String} amount  - value that we want to format as an amount as currecy.
-     * @return {String}                - Amount with symbols as string.
+     * @param  {Number/String} amount    - value that we want to format as an amount as currecy.
+     * @param  {Number}        precision - precision of money amount.
+     * @return {String}                  - Amount with symbols as string.
      */
-    to_currency( amount ) {
-        amount = this.with_precision( amount, 2, true );
+    to_currency( amount, precision = 2 ) {
+        amount = this.with_precision( amount, precision, true );
 
         if( typeof( amount ) == 'number' ) {
             let isNegative = false;
