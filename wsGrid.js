@@ -2587,6 +2587,30 @@ export class Grid extends Object_Base {
     }
 
     /**
+     * Format a given value as a date in the form of M/D/YYYY h:mm:ss A
+     * @param  {String} cell_value    - Date in form or YYYY-MM-DDTHH:mm:ss
+     * @return {String}               - Formatted date of M/D/YYYY h:mm:ss A
+     */
+    format_datetime( cell_value ) {
+        if( cell_value == ''
+            || cell_value == undefined
+            || cell_value == '0000-00-00'
+            || cell_value == '0000-00-00 00:00:00'
+        ) {
+            return '';
+        }
+
+        let format = 'YYYY-MM-DD HH:mm:ss';
+
+        if( cell_value.indexOf( '/' ) >= 0 ) {
+            format = 'M/D/YYYY h:mm:ss A';
+        }
+
+        let date = moment( cell_value, format );
+        return date.format( 'M/D/YYYY h:mm:ss A' );
+    }
+
+    /**
      * format the data as currency, a custom user function can override the default abilty.
      * @param  {String} cell_value     - Value to format
      * @return {String}               - Formatted value

@@ -24,14 +24,15 @@
 
         let columns = [
             { name: 'id',         visible: false,                                    },
-            { name: 'first_name', label: 'First Name', width: 200, align: 'left',   fixed: false, type: 'text',     editable: true                                          },
-            { name: 'last_name',  label: 'Last Name',  width: 200, align: 'left',   fixed: false, type: 'text',     editable: false                                         },
-            { name: 'age',        label: 'Age',        width: 75,  align: 'right',  fixed: true,  type: 'number',   editable: true                                          },
-            { name: 'height',     label: 'Height',     width: 75,  align: 'center', fixed: true,  type: 'text',     editable: true                                          },
-            { name: 'dob',        label: 'DOB',        width: 100, align: 'center', fixed: true,  type: 'date',     editable: true                                          },
-            { name: 'color',      label: 'Color',      width: 75,  align: 'center', fixed: true,  type: 'color',    editable: true                                          },
-            { name: 'gender',     label: 'Gender',     width: 75,  align: 'left',   fixed: true,  type: 'dropdown', editable: true, options: { 'female': 'Female', 'male': 'Male' } },
-            { name: 'selected',   label: 'Check',      width: 50,  align: 'center', fixed: true,  type: 'checkbox', editable: true, format: 'boolean'                       },
+            { name: 'first_name', label: 'First Name', width: 200, align: 'left',   fixed: false, type: 'text',            editable: true                                          },
+            { name: 'last_name',  label: 'Last Name',  width: 200, align: 'left',   fixed: false, type: 'text',            editable: false                                         },
+            { name: 'age',        label: 'Age',        width: 75,  align: 'right',  fixed: true,  type: 'number',          editable: true                                          },
+            { name: 'height',     label: 'Height',     width: 75,  align: 'center', fixed: true,  type: 'text',            editable: true                                          },
+            { name: 'dob',        label: 'DOB',        width: 100, align: 'center', fixed: true,  type: 'date',            editable: true                                          },
+            { name: 'color',      label: 'Color',      width: 75,  align: 'center', fixed: true,  type: 'color',           editable: true                                          },
+            { name: 'gender',     label: 'Gender',     width: 75,  align: 'left',   fixed: true,  type: 'dropdown',        editable: true, options: { 'female': 'Female', 'male': 'Male' } },
+            { name: 'selected',   label: 'Check',      width: 50,  align: 'center', fixed: true,  type: 'checkbox',        editable: true, format: 'boolean'                       },
+            { name: 'edited',     label: 'Edited',     width: 150, align: 'left',   fixed: true,  type: 'datetime-local',  editable: true, format: 'datetime'                      },
         ];
 
         let grid = new Grid( {
@@ -51,21 +52,21 @@
         } );
 
         grid.display( [
-            { id: 1,   first_name: 'John',    last_name: 'Smith',   age: 28,  height: '5\'10"', dob: '1985-10-21', gender: 'male',    color: '#FFC0CB', selected: 1, },
-            { id: 2,   first_name: 'Jane',    last_name: 'Doe',     age: 26,  height: '5\'6"',  dob: '1982-12-03', gender: 'female',  color: '#DB7093', selected: 0, },
-            { id: 3,   first_name: 'Matt',    last_name: 'Miller',  age: 45,  height: '5\'9"',  dob: '1990-04-07', gender: 'male',    color: '#FA8072', selected: 1, },
-            { id: 4,   first_name: 'Emma',    last_name: 'Johnson', age: 23,  height: '5\'3"',  dob: '1998-02-05', gender: 'female',  color: '#CD5C5C', selected: 0, },
-            { id: 11,  first_name: 'John',    last_name: 'Smith',   age: 28,  height: '5\'10"', dob: '2001-04-30', gender: 'male',    color: '#DC143C', selected: 0, },
-            { id: 12,  first_name: 'Jane',    last_name: 'Doe',     age: 26,  height: '5\'6"',  dob: '2005-11-6',  gender: 'female',  color: '#8B0000', selected: 1, },
-            { id: 13,  first_name: 'Matt',    last_name: 'Miller',  age: 45,  height: '5\'9"',  dob: '1985-10-21', gender: 'male',    color: '#FF4500', selected: 1, },
-            { id: 14,  first_name: 'June',    last_name: 'Johnson', age: 47,  height: '5\'3"',  dob: '1982-12-03', gender: 'female',  color: '#FF6347', selected: 0, },
-            { id: 22,  first_name: 'Jane',    last_name: 'Doe',     age: 10,  height: '5\'6"',  dob: '1998-02-05', gender: 'female',  color: '#FFA500', selected: 0, },
-            { id: 24,  first_name: 'Jimmy',   last_name: 'Johnson', age: 13,  height: '5\'3"',  dob: '2005-11-6',  gender: 'male',    color: '#FFFACD', selected: 0, },
-            { id: 33,  first_name: 'Matt',    last_name: 'Miller',  age: 45,  height: '5\'9"',  dob: '1990-04-07', gender: 'male',    color: '#FFDEAD', selected: 1, },
-            { id: 34,  first_name: 'Terri',   last_name: 'Johnson', age: 89,  height: '5\'3"',  dob: '1998-02-05', gender: 'female',  color: '#D2B48C', selected: 1, },
-            { id: 111, first_name: 'John',    last_name: 'Smith',   age: 28,  height: '5\'10"', dob: '2001-04-30', gender: 'male',    color: '#D2691E', selected: 1, },
-            { id: 114, first_name: 'Beth',    last_name: 'Johnson', age: 50,  height: '5\'3"',  dob: '1982-12-03', gender: 'female',  color: '#800000', selected: 1, },
-            { id: 124, first_name: 'Beverly', last_name: 'Johnson', age: 62,  height: '5\'3"',  dob: '2005-11-6',  gender: 'female',  color: '#228B22', selected: 0, },
+            { id: 1,   first_name: 'John',    last_name: 'Smith',   age: 28,  height: '5\'10"', dob: '1985-10-21', gender: 'male',    color: '#FFC0CB', selected: 1,  edited: '2018-10-01T12:24:32' },
+            { id: 2,   first_name: 'Jane',    last_name: 'Doe',     age: 26,  height: '5\'6"',  dob: '1982-12-03', gender: 'female',  color: '#DB7093', selected: 0,  edited: '2018-09-01T12:24:32' },
+            { id: 3,   first_name: 'Matt',    last_name: 'Miller',  age: 45,  height: '5\'9"',  dob: '1990-04-07', gender: 'male',    color: '#FA8072', selected: 1,  edited: '2018-08-01T12:24:32' },
+            { id: 4,   first_name: 'Emma',    last_name: 'Johnson', age: 23,  height: '5\'3"',  dob: '1998-02-05', gender: 'female',  color: '#CD5C5C', selected: 0,  edited: '2018-07-01T12:24:32' },
+            { id: 11,  first_name: 'John',    last_name: 'Smith',   age: 28,  height: '5\'10"', dob: '2001-04-30', gender: 'male',    color: '#DC143C', selected: 0,  edited: '2018-06-01T12:24:32' },
+            { id: 12,  first_name: 'Jane',    last_name: 'Doe',     age: 26,  height: '5\'6"',  dob: '2005-11-6',  gender: 'female',  color: '#8B0000', selected: 1,  edited: '2018-05-01T12:24:32' },
+            { id: 13,  first_name: 'Matt',    last_name: 'Miller',  age: 45,  height: '5\'9"',  dob: '1985-10-21', gender: 'male',    color: '#FF4500', selected: 1,  edited: '2018-04-01T12:24:32' },
+            { id: 14,  first_name: 'June',    last_name: 'Johnson', age: 47,  height: '5\'3"',  dob: '1982-12-03', gender: 'female',  color: '#FF6347', selected: 0,  edited: '2018-03-01T12:24:32' },
+            { id: 22,  first_name: 'Jane',    last_name: 'Doe',     age: 10,  height: '5\'6"',  dob: '1998-02-05', gender: 'female',  color: '#FFA500', selected: 0,  edited: '2018-02-01T12:24:32' },
+            { id: 24,  first_name: 'Jimmy',   last_name: 'Johnson', age: 13,  height: '5\'3"',  dob: '2005-11-6',  gender: 'male',    color: '#FFFACD', selected: 0,  edited: '2018-01-01T12:24:32' },
+            { id: 33,  first_name: 'Matt',    last_name: 'Miller',  age: 45,  height: '5\'9"',  dob: '1990-04-07', gender: 'male',    color: '#FFDEAD', selected: 1,  edited: '2018-04-06T12:24:32' },
+            { id: 34,  first_name: 'Terri',   last_name: 'Johnson', age: 89,  height: '5\'3"',  dob: '1998-02-05', gender: 'female',  color: '#D2B48C', selected: 1,  edited: '2018-10-01T12:24:32' },
+            { id: 111, first_name: 'John',    last_name: 'Smith',   age: 28,  height: '5\'10"', dob: '2001-04-30', gender: 'male',    color: '#D2691E', selected: 1,  edited: '2018-10-01T12:24:32' },
+            { id: 114, first_name: 'Beth',    last_name: 'Johnson', age: 50,  height: '5\'3"',  dob: '1982-12-03', gender: 'female',  color: '#800000', selected: 1,  edited: '2018-10-01T12:24:32' },
+            { id: 124, first_name: 'Beverly', last_name: 'Johnson', age: 62,  height: '5\'3"',  dob: '2005-11-6',  gender: 'female',  color: '#228B22', selected: 0,  edited: '2018-10-01T12:24:32' },
         ] );
 
     </script>
