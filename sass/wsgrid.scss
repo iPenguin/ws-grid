@@ -123,6 +123,9 @@ td.wsgrid__column_group_footer {
     top: 0;
     width: 5px;
 }
+.frozen_right .wsgrid__header_column_resize {
+    left: 0;
+}
 .wsgrid__header_column_resize:hover {
     cursor: col-resize;
 }
