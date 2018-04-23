@@ -755,7 +755,7 @@ export class Grid extends Object_Base {
         }
 
         if( this.row_reorder ) {
-            row_html += `<${column_type} class="${wsgrid_column}_row_move_target" data-rowid="${row_id}"></${column_type}>`;
+            row_html += `<${column_type} class="${wsgrid_column}_row_move_target frozen_left" style="position:sticky;left:0px;z-index:5;width:5px;" data-rowid="${row_id}"></${column_type}>`;
         }
 
         if( this.multi_select ) {
@@ -2650,7 +2650,7 @@ export class Grid extends Object_Base {
      * @return {String}                - Formatted value
      */
     format_delete( cell_value ) {
-        return '<i class="fa fa-trash-o fa-lg u_error_icon" title="Delete this record"></i>';
+        return '<i class="fa fa-trash-o fa-lg u_error_icon" style="width: 100%" title="Delete this record"></i>';
     }
 
     /**
