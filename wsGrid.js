@@ -750,10 +750,18 @@ export class Grid extends Object_Base {
      * @return {String}                - All the HTML for this row in a string.
      */
     _generate_row( row_id, data, row_classes = '', column_classes = '', is_header = false ) {
+        let user_classes = [];
+        if( row_id !== '' && typeof( this.events.row_classes ) == 'function' ) {
+            user_classes = user_classes.concat( this.events.row_classes( row_id, data ) );
+        }
+        else if( row_id !== '' && typeof( this.events.row_classes ) == 'array' ) {
+            user_classes = user_classes.concat( this.events.row_classes );
+        }
+
         /*********************************************************************************
          * Generate Row
          *********************************************************************************/
-        let row_html = `<tr class="${wsgrid_row} ${wsgrid_row}_${row_id} ${row_classes}"`
+        let row_html = `<tr class="${wsgrid_row} ${wsgrid_row}_${row_id} ${row_classes} ${user_classes.join( ' ' )}"`
                     + ( row_id == '' ? '' : `data-rowid="${row_id}"` )
                     //+ ` style="min-width:${this.min_row_width}px;`
                     + ( this.overflow ? '' : `max-width:${this.min_row_width};` )
@@ -866,12 +874,21 @@ export class Grid extends Object_Base {
         /*********************************************************************************
          * Generate Columns
          *********************************************************************************/
-        let user_classes = '';
+        let user_classes = [];
+
+        if( row_id !== '' && typeof( this.events.cell_classes ) == 'function' ) {
+            user_classes = user_classes.concat( this.events.cell_classes( row_id, column_name, data ) );
+        }
+        else if( row_id !== '' && typeof( this.events.cell_classes ) == 'array' ) {
+            user_classes = user_classes.concat( this.events.cell_classes );
+        }
+
+        //FIXME: rewrite for array instead of string.
         if( typeof( this.columns.classes[ column_name ] ) == 'function' ) {
-            user_classes = this.columns.classes[ column_name ]( row_id, value, data );
+            user_classes.push( this.columns.classes[ column_name ]( row_id, value, data ) );
         }
         else {
-            user_classes = this.columns.classes[ column_name ];
+            user_classes.push( this.columns.classes[ column_name ] );
         }
 
         let display = '';
@@ -899,7 +916,7 @@ export class Grid extends Object_Base {
         cell_html += `<${column_type} class="${wsgrid_column} ${wsgrid_cell} ${column_classes} ${wsgrid_column}_${column_name}`
             + ( this.columns.frozen_left[ column_name ] ? ' frozen_left' : '' )
             + ( this.columns.frozen_right[ column_name ] ? ' frozen_right' : '' )
-            + ( is_header ? '' : ` ${user_classes}"` )
+            + ( is_header ? '' : ` ${user_classes.join( ' ' )}"` )
             + ` id="${wsgrid_column}_${row_id}_${column_name}"`
             + tooltip
             + ` data-rowid='${row_id}' data-column='${column_name}' data-columnid="${column_id}"`
