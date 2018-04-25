@@ -34,14 +34,16 @@
  * currency:        - Override function for how to format numbers as currency.
  * events:          - an object containing user orverride event functions as elements.
  *                    all events are executed with 'this' set to the current grid.
- *     click( row, column, rowData )         - Click event for a given cell.
- *     dblclick( row, column_name, rowData ) - Double click event for cells, the grid passes in row,
+ *     click( row, column, row_data )         - Click event for a given cell.
+ *     dblclick( row, column_name, row_data ) - Double click event for cells, the grid passes in row,
  *                                             column name, and row data.
  *     load_complete( data )                 - After the data has been given to the grid,
  *                                             but before the ui is generated.
  *     data_loaded( data )                   - After the data is loaded, but before the grid is generated.
  *     data_changed( change )                - Fires when the internal data for the grid is changed.
  *                                             change contains row_id, column_name, new_value, old_value,
+ *     row_classes( row_id, row_data )               - Allows the user to apply classes to a row, return array of strings.
+ *     cell_classes( row_id, column_name, row_data ) - Allows the user to apply classes to all cells, return array of strings.
  *
  *     sort_row                              - After the user has manually changed the row order.
  *     after_edit                            - After the user has edited the data, and the editor has closed.
@@ -82,23 +84,23 @@ const wsgrid_multiselect = `${wsgrid_prefix}_multiselect`;
 const wsgrid_data        = `${wsgrid_prefix}_data`;
 
 let column_defaults = {
-    name:         '',
-    label:        '',
-    width:        100,
-    align:        'left',
-    fixed:        true,
-    visible:      true,
-    type:         'text',
-    editable:     false,
-    frozen_left:  false,
-    frozen_right: false,
-    classes:      '',
-    style:        '',
-    tooltip:      '',
-    options:      {},
-    max_length:   undefined,
-    min_length:   undefined,
-    format:       ( value ) => {
+    name:           '',
+    label:          '',
+    width:          100,
+    align:          'left',
+    fixed:          true,
+    visible:        true,
+    type:           'text',
+    editable:       false,
+    frozen_left:    false,
+    frozen_right:   false,
+    classes:        '',
+    style:          '',
+    tooltip:        '',
+    options:        {},
+    max_length:     undefined,
+    min_length:     undefined,
+    format:         ( value ) => {
         if( value === undefined ) {
             return '';
         }
@@ -121,6 +123,8 @@ let grid_defaults = {
     column_sort:        true,
     row_reorder:        false,
     multi_select:       false,
+    background:         'white',
+    background_alt:     'lightcyan',
     grouping_model:     [],
     connection_type:    'socket',
     connection_options: {
@@ -136,9 +140,10 @@ let grid_defaults = {
  * the grid those changes are not lost.
  */
 let cell_metadata = {
-    changed:    false,
-    old_value:  undefined,
-    classes:    '',
+    changed:         false,
+    old_value:       undefined,
+    classes:         '',
+    background:      '#FFFFFF', // white
 };
 
 /**
@@ -171,6 +176,7 @@ function _is_grid_element( target ) {
         || target.tagName == 'TR'
         || target.tagName == 'TD'
         || target.classList.contains( `${wsgrid_multiselect}_header` )
+        || target.classList.contains( `${wsgrid_cell}_div` )
         || target.classList.contains( `${wsgrid_header}_column_move_target` )
         || target.classList.contains( `${wsgrid_editor}_main_editor` )
     ) {
@@ -627,7 +633,12 @@ export class Grid extends Object_Base {
             for( let i = 0; i < size; i++ ) {
                 let row = {};
                 for( let c = 0; c < this.columns.order.length; c++ ) {
-                    row[ this.columns.order[ c ] ] = Object.assign( {}, cell_metadata ); // clone the metadata for each cell.
+                    let color = this.background;
+                    if( i % 2 == 0 ) {
+                        color = this.background_alt;
+                    }
+                    // clone the metadata for each cell.
+                    row[ this.columns.order[ c ] ] = Object.assign( {}, cell_metadata, { background: color } );
                 }
                 this.metadata.push( row );
             }
@@ -647,7 +658,7 @@ export class Grid extends Object_Base {
 
         let row_html = '';
         let count = this.data.length;
-        let zebra = 0;
+        let zebra = 1;
 
         for( let i = 0; i < count; i++ ) {
 
@@ -880,6 +891,11 @@ export class Grid extends Object_Base {
             tooltip = ` title="${this.columns.tooltip[ column_name ]}"`;
         }
 
+        let color = '';
+        if( ! is_header ) {
+            color = `background-color:${this.metadata[ row_id ][ column_name ].background};`;
+        }
+
         let alignment = this.columns.align[ column_name ];
         cell_html += `<${column_type} class="${wsgrid_column} ${wsgrid_cell} ${column_classes} ${wsgrid_column}_${column_name}`
             + ( this.columns.frozen_left[ column_name ] ? ' frozen_left' : '' )
@@ -888,8 +904,8 @@ export class Grid extends Object_Base {
             + ` id="${wsgrid_column}_${row_id}_${column_name}"`
             + tooltip
             + ` data-rowid='${row_id}' data-column='${column_name}' data-columnid="${column_id}"`
-            + ` style="${display} ${frozen_style} width:${this.columns.width[ column_name ]}px;text-align:${alignment};${user_styles};">`
-            + `${value}</${column_type}>`;
+            + ` style="${display} ${frozen_style} ${color} width:${this.columns.width[ column_name ]}px;${user_styles};">`
+            + `<div class="${wsgrid_cell}_div" style="width:100%;text-align:${alignment};">${value}</div></${column_type}>`;
 
         return cell_html;
     }
