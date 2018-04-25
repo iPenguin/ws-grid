@@ -1751,7 +1751,7 @@ export class Grid extends Object_Base {
                     }
 
                     if( ! event.defaultPrevented ) {
-                        this._inline_editor( event.target, properties );
+                        this._inline_editor( target, properties );
                     }
                 }
             }
@@ -2269,7 +2269,8 @@ export class Grid extends Object_Base {
             format_new_value = this.columns.format[ column_name ]( format_new_value, this.data[ row_id ] );
         }
 
-        cell.innerHTML = format_new_value;
+        let alignment = this.columns.align[ column_name ];
+        cell.innerHTML = `<div class="${wsgrid_cell}_div" style="width:100%;text-align:${alignment};">${format_new_value}</div>`;
 
         // Don't alert for changes unless the data really changed.
         if( new_value == old_value ) {
@@ -2588,7 +2589,9 @@ export class Grid extends Object_Base {
     format_date( cell_value ) {
         if( cell_value == ''
             || cell_value == undefined
-            || cell_value == '0000-00-00' ) {
+            || cell_value == '0000-00-00'
+            || cell_value == '0000-00-00 00:00:00'
+        ) {
             return '';
         }
 
