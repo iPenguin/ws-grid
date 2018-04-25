@@ -176,7 +176,6 @@ function _is_grid_element( target ) {
         || target.tagName == 'TR'
         || target.tagName == 'TD'
         || target.classList.contains( `${wsgrid_multiselect}_header` )
-        || target.classList.contains( `${wsgrid_cell}_div` )
         || target.classList.contains( `${wsgrid_header}_column_move_target` )
         || target.classList.contains( `${wsgrid_editor}_main_editor` )
     ) {
@@ -1492,6 +1491,34 @@ export class Grid extends Object_Base {
     }
 
     /**
+     * Getter/Setter the given property on the cell.
+     * @param {Number} row_id      - Row number
+     * @param {String} column_name - Name of the column
+     * @param {String} property    - Property to get/set on the cell
+     * @param {*}      value       - value of the property to set.
+     */
+    cell_property( row_id, column_name, property, value = undefined ) {
+
+        if( value === undefined ) {
+            try{
+                return this.metadata[ row_id ][ column_name ][ property ];
+            }
+            catch( error ) {
+                console.log( `Could not find property ${property} in the grid at ${row_id}, ${column_name}` );
+            }
+        }
+        else {
+            if( typeof( this.metadata[ row_id ] ) == 'undefined' ) {
+                throw new Error( "Row ID is undefined in metadata", this.metadata, row_id );
+            }
+
+            this.metadata[ row_id ][ column_name ][ property ] = value;
+
+            this.refresh_cell( row_id, column_name );
+        }
+    }
+
+    /**
      * is the given cell editable?
      * @param  {String}  column_name - Name of the column to check
      * @param  {Number}  row_id      - Row id of the record to check.
@@ -2077,7 +2104,6 @@ export class Grid extends Object_Base {
      */
     _inline_editor( cell, properties ) {
         let editor = '';
-
         let cell_value = this.data[ cell.dataset.rowid ][ properties.name ];
 
         // Only open an editor if one isn't already open.
