@@ -44,6 +44,9 @@
             events:         {
                 click( row, column_name, data ) {
                 },
+                after_edit( row, column_name, value ) {
+                    console.log( "after edit", row, column_name, value );
+                }
             },
             connection_options: {
                 type: 'Socket',
@@ -69,6 +72,13 @@
             { id: 124, first_name: 'Beverly', last_name: 'Johnson', age: 62,  height: '5\'3"',  dob: '2005-11-6',  gender: 'female',  color: '#228B22', selected: 0,  edited: '2018-10-01T12:24:32' },
         ] );
 
+        grid.cell_property( 2, 'first_name', 'background', '#aaaaaa' );
+
+        grid.append_rows( [
+            { id: 114, first_name: 'Brian',  last_name: 'Milco',    age: 35,  height: '5\'10"',  dob: '1982-12-03', gender: 'male',  color: '#800000', selected: 1,  edited: '2018-10-01T12:24:32' },
+            { id: 124, first_name: '????',   last_name: '????',     age: 30,  height: '5\'2"',  dob: '2005-11-6',  gender: 'female',  color: '#228B22', selected: 0,  edited: '2018-10-01T12:24:32' },
+            { id: 111, first_name: 'Hank',   last_name: 'Williams', age: 28,  height: '5\'10"', dob: '2001-04-30', gender: 'male',    color: '#D2691E', selected: 1,  edited: '2018-10-01T12:24:32' },
+        ] );
     </script>
 </body>
 </html>
