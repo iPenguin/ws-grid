@@ -1794,7 +1794,17 @@ export class Grid extends Object_Base {
                     && this.columns.type[ column_name ] == 'checkbox'
                 ) {
                     let value = Number( this.cell_value( column_name, row ) );
-                    this.cell_value( column_name, row, Math.abs( value - 1 ) );
+                    let new_value = Math.abs( value - 1 );
+                    this.cell_value( column_name, row, new_value );
+
+                    let e = new Event( `${wsgrid_data}.cell_changed`, { bubbles: true } );
+                    e.changes = [ {
+                        row:       row,
+                        column:    column_name,
+                        new_value: new_value,
+                        old_value: value,
+                    } ];
+                    cell.dispatchEvent( e );
                 }
                 // If this column is editable create an editor
                 // for the user to change the data.
