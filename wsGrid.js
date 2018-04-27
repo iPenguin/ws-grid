@@ -143,7 +143,7 @@ let cell_metadata = {
     changed:         false,
     old_value:       undefined,
     classes:         '',
-    background:      '#FFFFFF', // white
+    background:      'white',
 };
 
 /**
@@ -227,6 +227,8 @@ export class Grid extends Object_Base {
         this.metadata = [];
         this.totals_data = undefined;
 
+        this._modify_style_sheet();
+
         this.is_filtered = false;
 
         this._create_lookup_tables( all_options.column_model, all_options.grouping_model );
@@ -307,6 +309,24 @@ export class Grid extends Object_Base {
                 this.grouping.sort_order[ grouping_model[ i ].column ] = grouping_model[ i ].sort_order;
                 this.grouping.header[ grouping_model[ i ].column ] = grouping_model[ i ].header;
                 this.grouping.footer[ grouping_model[ i ].column ] = grouping_model[ i ].footer;
+            }
+        }
+    }
+
+    _modify_style_sheet() {
+
+        for( let s = 0; s < document.styleSheets.length; s++ ) {
+            let rules = document.styleSheets[ s ].cssRules;
+            let ruleCount = rules.length;
+            for( let r = 0; r < ruleCount; r++ ) {
+                if( rules[ r ].selectorText == `.${wsgrid_row}_odd` ) {
+                    document.styleSheets[ s ].deleteRule( r );
+                    document.styleSheets[ s ].insertRule( `.${wsgrid_row}_odd { background-color: ${this.background}; }`, r );
+                }
+                else if( rules[ r ].selectorText == `.${wsgrid_row}_even` ) {
+                    document.styleSheets[ s ].deleteRule( r );
+                    document.styleSheets[ s ].insertRule( `.${wsgrid_row}_even { background-color: ${this.background_alt}; }`, r );
+                }
             }
         }
     }
@@ -632,12 +652,9 @@ export class Grid extends Object_Base {
             for( let i = 0; i < size; i++ ) {
                 let row = {};
                 for( let c = 0; c < this.columns.order.length; c++ ) {
-                    let color = this.background;
-                    if( i % 2 == 0 ) {
-                        color = this.background_alt;
-                    }
+
                     // clone the metadata for each cell.
-                    row[ this.columns.order[ c ] ] = Object.assign( {}, cell_metadata, { background: color } );
+                    row[ this.columns.order[ c ] ] = Object.assign( {}, cell_metadata );
                 }
                 this.metadata.push( row );
             }
@@ -907,11 +924,6 @@ export class Grid extends Object_Base {
             tooltip = ` title="${this.columns.tooltip[ column_name ]}"`;
         }
 
-        let color = '';
-        if( ! is_header ) {
-            color = `background-color:${this.metadata[ row_id ][ column_name ].background};`;
-        }
-
         let alignment = this.columns.align[ column_name ];
         cell_html += `<${column_type} class="${wsgrid_column} ${wsgrid_cell} ${column_classes} ${wsgrid_column}_${column_name}`
             + ( this.columns.frozen_left[ column_name ] ? ' frozen_left' : '' )
@@ -920,7 +932,7 @@ export class Grid extends Object_Base {
             + ` id="${wsgrid_column}_${row_id}_${column_name}"`
             + tooltip
             + ` data-rowid='${row_id}' data-column='${column_name}' data-columnid="${column_id}"`
-            + ` style="${display} ${frozen_style} ${color} width:${this.columns.width[ column_name ]}px;${user_styles};">`
+            + ` style="${display} ${frozen_style} width:${this.columns.width[ column_name ]}px;${user_styles};">`
             + `<div class="${wsgrid_cell}_div" style="width:100%;text-align:${alignment};">${value}</div></${column_type}>`;
 
         return cell_html;
