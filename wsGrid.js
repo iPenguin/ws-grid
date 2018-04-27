@@ -376,28 +376,27 @@ export class Grid extends Object_Base {
         }
 
         let fixed_width = 0;
+        let fixed_width_visible = 0;
         let flex_width = 0;
 
         // loop through the columns and gather info
         for( let i = 0; i < count; i++ ) {
             let column_name = this.columns.order[ i ];
-            // if( ! this.columns.visible[ column_name ] ) {
-            //     continue;
-            // }
 
             let isFixed = this.columns.fixed[ column_name ];
 
             fixed_width += ( isFixed ? this.columns.width[ column_name ] : 0 );
             flex_width += ( isFixed ? 0 : this.columns.width[ column_name ] );
+
+            if( this.columns.visible[ column_name ] ) {
+                fixed_width_visible += ( isFixed ? this.columns.width[ column_name ] : 0 );
+            }
         }
 
         // calculate the widths of flexable columns.
-        let remaining_width = grid_width - fixed_width;
+        let remaining_width = grid_width - fixed_width_visible;
         for( let i = 0; i < count; i++ ) {
             let column_name = this.columns.order[ i ];
-            // if( ! this.columns.visible[ column_name ] ) {
-            //     continue;
-            // }
 
             let new_width = this.columns.width[ column_name ];
             if( ! user_set && ! this.columns.fixed[ column_name ] ) {
@@ -825,6 +824,7 @@ export class Grid extends Object_Base {
         let sort_styling = '';
         let move_handle = '';
         let resize_handle = '';
+        let div_classes = '';
 
         if( is_header ) {
             let decoration_side = 'left';
@@ -853,6 +853,7 @@ export class Grid extends Object_Base {
             }
 
             value = `${move_handle} ${this.columns.label[ column_name ]} ${sort_styling} ${resize_handle}`;
+            div_classes = `${wsgrid_header}_column`;
         }
         else {
 
@@ -901,7 +902,7 @@ export class Grid extends Object_Base {
         }
 
         //FIXME: rewrite for array instead of string.
-        if( typeof( this.columns.classes[ column_name ] ) == 'function' ) {
+        if( row_id !== '' && typeof( this.columns.classes[ column_name ] ) == 'function' ) {
             user_classes.push( this.columns.classes[ column_name ]( row_id, value, data ) );
         }
         else {
@@ -933,7 +934,7 @@ export class Grid extends Object_Base {
             + tooltip
             + ` data-rowid='${row_id}' data-column='${column_name}' data-columnid="${column_id}"`
             + ` style="${display} ${frozen_style} width:${this.columns.width[ column_name ]}px;${user_styles};">`
-            + `<div class="${wsgrid_cell}_div" style="width:100%;text-align:${alignment};">${value}</div></${column_type}>`;
+            + `<div class="${wsgrid_cell}_div ${div_classes}" style="width:100%;text-align:${alignment};">${value}</div></${column_type}>`;
 
         return cell_html;
     }
@@ -1712,13 +1713,17 @@ export class Grid extends Object_Base {
 
         // If we're not clicking directly on a table element, 'bubble' to the closest element.
         if( ! _is_grid_element( target ) ) {
-            target = target.closest( 'TD' );
+            if( target.classList.contains( `${wsgrid_header}_column` ) ) {
+                target = target.closest( 'TH' );
+            }
+            else {
+                target = target.closest( 'TD' );
+            }
         }
-
         classList = target.classList;
 
         if( classList.contains( `${wsgrid_header}_column` ) ) {
-            this.header_click( event );
+            this.header_click( target );
         }
         else if( classList.contains( `${wsgrid_multiselect}_header` ) ) {
             this._multiselect_header_checked( target.checked );
@@ -1954,11 +1959,11 @@ export class Grid extends Object_Base {
      *
      * @param  {Event} event   - DOM Event.
      */
-    header_click( event ) {
+    header_click( target ) {
         if( ! this.column_sort ) {
             return;
         }
-        let column_name = event.target.dataset.column;
+        let column_name = target.dataset.column;
 
         // only call the user defined function if it exists.
         if( typeof( this.events.header_click ) == 'function' ) {
