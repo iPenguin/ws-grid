@@ -1797,6 +1797,10 @@ export class Grid extends Object_Base {
                     let new_value = Math.abs( value - 1 );
                     this.cell_value( column_name, row, new_value );
 
+                    if( typeof( this.events.after_edit ) == 'function' ) {
+                        this.events.after_edit.call( this, row, column_name, new_value );
+                    }
+
                     let e = new Event( `${wsgrid_data}.cell_changed`, { bubbles: true } );
                     e.changes = [ {
                         row:       row,
@@ -1804,7 +1808,7 @@ export class Grid extends Object_Base {
                         new_value: new_value,
                         old_value: value,
                     } ];
-                    cell.dispatchEvent( e );
+                    target.dispatchEvent( e );
                 }
                 // If this column is editable create an editor
                 // for the user to change the data.
@@ -1986,6 +1990,11 @@ export class Grid extends Object_Base {
         }
     }
 
+    /**
+     * Sor the data in the grid by column name and sort order
+     * @param  {String} [column_name='']   - Name of column to sort by.
+     * @param  {String} [sort_order='asc'] - Order in which to sort data asc, desc
+     */
     _sort_data( column_name = '', sort_order = 'asc' ) {
         this.sort_direction = sort_order.toLowerCase();
 
