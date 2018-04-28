@@ -256,8 +256,9 @@ export class Grid extends Object_Base {
     }
 
     /**
-     * turn the column model on it's side so we can do property lookups using the column name.
-     * @param  {Object} column_model        - Column model used to create this grid.
+     * This function turns the column model inside out so we can do property lookups using the column name.
+     * @param  {Object[]} column_model        - Column model used to create this grid.
+     * @param  {Object[]} grouping_model      - Grouping model used to create grouping headers.
      */
     _create_lookup_tables( column_model = null, grouping_model = null ) {
         if( column_model === null ) {
@@ -763,6 +764,7 @@ export class Grid extends Object_Base {
      * @param  {Object} data           - All key, value pairs to generate HTML for.
      * @param  {String} row_classes    - List of classes to add to the row.
      * @param  {String} column_classes - List of classes to add to each column
+     * @param  {Boolean} is_header     - Is this row a header row? Default: false.
      * @return {String}                - All the HTML for this row in a string.
      */
     _generate_row( row_id, data, row_classes = '', column_classes = '', is_header = false ) {
@@ -1297,9 +1299,9 @@ export class Grid extends Object_Base {
 
     /**
      * Refresh the contents of just the cell at row_id, column_name.
-     * @param  {[type]} row_id      [description]
-     * @param  {[type]} column_name [description]
-     * @return {[type]}             [description]
+     * @param  {Number} row_id          - row number of the cell to replace
+     * @param  {String} column_name     - name of the column for the cell to be replaced
+     * @param  {boolean} recreate_cell  - If true generate the cell anew replacing the existing contents.
      */
     refresh_cell( row_id, column_name, recreate_cell = true ) {
         let rows = document.getElementsByClassName( `${wsgrid_row}_${row_id}` );
@@ -1336,8 +1338,8 @@ export class Grid extends Object_Base {
     }
 
     /**
-     * Add a record to the data
-     * @param {Object} record  - a Javascript object containing keys matching the columns
+     * Add the records to the data
+     * @param {Object[]} records  - a Javascript object containing keys matching the columns
      */
     append_rows( records ) {
 
@@ -1424,9 +1426,9 @@ export class Grid extends Object_Base {
     }
 
     /**
-     * Update the given records based on the unique key.
-     * @param  {String} unique_key      - name of the key field.
-     * @param  {Array}  data            - Array of data including the key field to update.
+     * Update the given records based on the unique key field.
+     * @param  {String} unique_key       - name of the key field.
+     * @param  {Object[]}  updated_data  - Array of records to update, the key field and value should be in this data.
      */
     update_records( unique_key, updated_data ) {
         if( ! Array.isArray( updated_data ) ) {
@@ -1846,7 +1848,7 @@ export class Grid extends Object_Base {
 
     /**
      * Resize event, recalculate the size of the grid and re-draw it.
-     * @param  {Event} e     - Trigger event for resizing
+     * @param  {Event} event     - Trigger event for resizing
      */
     resize( event ) {
         this._calculate_columns();
@@ -1855,7 +1857,7 @@ export class Grid extends Object_Base {
 
     /**
      * Mouse down event handler
-     * @param  {Event} e     - trigger event
+     * @param  {Event} event     - trigger event
      */
     mousedown( event ) {
         let classList = event.target.classList;
@@ -1878,7 +1880,7 @@ export class Grid extends Object_Base {
     }
     /**
      * Mouse move event handler
-     * @param  {Event} e     - trigger event
+     * @param  {Event} event     - trigger event
      */
     mousemove( event ) {
         if( event.buttons == 1 && this.drag.started ) {
@@ -1897,7 +1899,7 @@ export class Grid extends Object_Base {
     }
     /**
      * Mouse up event handler
-     * @param  {Event} e     - trigger event
+     * @param  {Event} event     - trigger event
      */
     mouseup( event ) {
         if( this.drag.started ) {
@@ -1971,7 +1973,7 @@ export class Grid extends Object_Base {
      * The default event is to sort the data by the given column.
      * Asending first, then descending.
      *
-     * @param  {Event} event   - DOM Event.
+     * @param  {HTMLElement} target   - the HTML Element that was the target of the click event.
      */
     header_click( target ) {
         if( ! this.column_sort ) {
@@ -2066,10 +2068,12 @@ export class Grid extends Object_Base {
 
     /**
      * Do generic asc / desc sorting based on grouped data.
-     * @param  {String} columns     - a list of columns and sort orders.
-     * @param  {Object} a           - 1st row to compare for sorting.
-     * @param  {Object} b           - 2nd row to compre for sorting.
-     * @return {Number}             - 1 sort a up, -1 sort a down.
+     * @param  {Array} sort_columns   - a list of columns and sort orders.
+     * @param  {Array} sort_orders    - a list of sort orders corrisponding to the sort columns.
+     * @param  {Object} a             - 1st row to compare for sorting.
+     * @param  {Object} b             - 2nd row to compre for sorting.
+     * @param  {Numner} sanity        - a sanity check to make sure we don't create an infinite loop.
+     * @return {Number}               - 1 sort a up, -1 sort a down.
      */
     _group_sorting( sort_columns, sort_orders, a, b, sanity = 100 ) {
         let column = sort_columns.shift();
@@ -2257,20 +2261,20 @@ export class Grid extends Object_Base {
                     //     this._open_left_editor( event, cell );
                     //     break;
                     case 38: // up arrow
-                        this._open_up_editor( event, cell );
+                        this._open_up_editor( cell );
                         break;
                     // case 39: // right arrow
                     //     this._open_right_editor( event, cell );
                     //     break;
                     case 40: // down arrow
-                        this._open_down_editor( event, cell );
+                        this._open_down_editor( cell );
                         break;
                     case 9:
                         if( this.event_trigger.shiftKey ) {
-                            this._open_previous_editor( event, cell );
+                            this._open_previous_editor( cell );
                         }
                         else {
-                            this._open_next_editor( event, cell );
+                            this._open_next_editor( cell );
                         }
                         break;
                     default:
@@ -2289,7 +2293,7 @@ export class Grid extends Object_Base {
                 return;
             }
 
-            if( self._close_editor( event, cell ) ) {
+            if( self._close_editor( cell ) ) {
                 document.removeEventListener( 'click', click_close_editor );
             }
         } );
@@ -2304,12 +2308,11 @@ export class Grid extends Object_Base {
     /**
      * Close event for the inline editor.
      * The user can override it by creating an before_inline_closed event and returning false;
-     * @param  {Event} event   - event that triggered this function.
-     * @param  {HTMLObject}    - HTML object of the cell we're editing.
+     * @param  {HTMLElement} cell   - HTML object of the cell we're editing.
      * @return {Boolean}       - did the editor close?
      * @emits  {wsgri__data.cell_changed} emits event when the editor is closed and the data change has been saved.
      */
-    _close_editor( event, cell ) {
+    _close_editor( cell ) {
         let row_id = cell.dataset.rowid;
         let column_name = cell.dataset.column;
         let new_value = cell.firstChild.value;
@@ -2376,12 +2379,12 @@ export class Grid extends Object_Base {
     }
 
     /**
-     * Find the next editor to open and open it.
-     * @param  {Event} event   - DOM event
+     * Find the next editable cell in the row and open the editor. If this is the last cell
+     * or the row move to the next row and open the first cell in that row for editing.
      * @param  {Element} cell   - HTML Element
      * @emits  {dblclick} emits event to open editor on the next editable cell.
      */
-    _open_next_editor( event, cell ) {
+    _open_next_editor( cell ) {
         let current_record = cell.dataset.rowid;
         let column_id = cell.dataset.columnid;
 
@@ -2412,12 +2415,12 @@ export class Grid extends Object_Base {
     }
 
     /**
-     * Find the previous editor to open and open it.
-     * @param  {Event}   even   - DOM event
+     * Find the previous editable cell in the row and open the editor. If the current cell is the first
+     * column in the row go to the last cell of the previous row.
      * @param  {Element} cell   - HTML Element
      * @emits  {dblclick}       - Emits event to open editor on the next editable cell.
      */
-    _open_previous_editor( event, cell ) {
+    _open_previous_editor( cell ) {
         let current_record = cell.dataset.rowid;
         let column_id = cell.dataset.columnid;
 
@@ -2449,11 +2452,10 @@ export class Grid extends Object_Base {
     }
 
     /**
-     * Find the previous editor to open and open it.
-     * @param  {[type]} cell [description]
-     * @return {[type]}      [description]
+     * Find the previous editor up in the same column open it for editing.
+     * @param  {HTMLElement} cell   - the cell is specifically a TD element.
      */
-    _open_up_editor( event, cell ) {
+    _open_up_editor( cell ) {
         let current_record = cell.dataset.rowid;
         let column_name = cell.dataset.column;
 
@@ -2469,11 +2471,10 @@ export class Grid extends Object_Base {
     }
 
     /**
-     * Find the previous editor to open and open it.
-     * @param  {[type]} cell [description]
-     * @return {[type]}      [description]
+     * Find the next editor down in the same column and open it for editing.
+     * @param  {HTMLElement} cell   - the cell is specifically a TD element.
      */
-    _open_down_editor( event, cell ) {
+    _open_down_editor( cell ) {
         let current_record = cell.dataset.rowid;
         let column_name = cell.dataset.column;
 

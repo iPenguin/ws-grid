@@ -5,9 +5,6 @@
 
 
 export class Object_Base {
-    constructor( options ) {
-    }
-
     /**
      * Test options passed in against a list of required options.
      * @param  {Object} options  - An object of options
@@ -24,7 +21,7 @@ export class Object_Base {
     }
 
     /**
-     * assign all the options to the object so they can be used esle where in the object.
+     * assign all the options to the object so they can be used else where in the object.
      * @param  {Object} options - An object of options to be assigned to this object.
      */
     _setup_object( options ) {
