@@ -70,6 +70,9 @@ import { Object_Base } from './object_base.js';
 import { Socket } from './socket.js';
 import { Ajax } from './ajax.js';
 
+/**
+ * Define names for parts of the grid.
+ */
 const wsgrid_prefix      = 'wsgrid_';
 const wsgrid_table       = `${wsgrid_prefix}_table`;
 const wsgrid_header      = `${wsgrid_prefix}_header`;
@@ -83,6 +86,9 @@ const wsgrid_totals      = `${wsgrid_prefix}_totals`;
 const wsgrid_multiselect = `${wsgrid_prefix}_multiselect`;
 const wsgrid_data        = `${wsgrid_prefix}_data`;
 
+/**
+ * Default values for the column options.
+ */
 let column_defaults = {
     name:           '',
     label:          '',
@@ -109,6 +115,9 @@ let column_defaults = {
     }
 };
 
+/**
+ * Define default values for grid options.
+ */
 let grid_defaults = {
     height:             200,
     width:              200,
@@ -190,6 +199,10 @@ function _is_grid_element( target ) {
  * @class
  */
 export class Grid extends Object_Base {
+    /**
+     * Constructor for the Grid class. Initialize the class using options from the user.
+     * @param {Object} options    - a list of options supplied by the user, these override the defaults.
+     */
     constructor( options ) {
         super( options );
 
@@ -314,6 +327,11 @@ export class Grid extends Object_Base {
         }
     }
 
+    /**
+     * Modify the stylesheet with some settings from the user.
+     * We're modifying the stylesheet directly because adding styles directly
+     * to the elements breaks the row selection coloring.
+     */
     _modify_style_sheet() {
 
         for( let s = 0; s < document.styleSheets.length; s++ ) {
@@ -563,6 +581,10 @@ export class Grid extends Object_Base {
         this.grid.style.cursor = '';
     }
 
+    /**
+     * When the mousedown event is triggered on the correct elements this row move start event is triggered.
+     * @param  {Event} e   - The event that triggered this call.
+     */
     _row_move_start( e ) {
         e.preventDefault();
         if( typeof( this.row_seperator ) == 'undefined' ) {
@@ -579,6 +601,10 @@ export class Grid extends Object_Base {
         this.grid.append( this.row_seperator );
         this.grid.style.cursor = 'move';
     }
+    /**
+     * When the mousemove event is triggered on the correct elements this row move event is triggered.
+     * @param  {Event} e   - The event that triggered this call.
+     */
     _row_move( e ) {
         e.preventDefault();
 
@@ -600,6 +626,10 @@ export class Grid extends Object_Base {
             }
         }
     }
+    /**
+     * When the mouseup event is triggered on the correct elements this row move end event is triggered.
+     * @param  {Event} e   - The event that triggered this call.
+     */
     _row_move_end( e ) {
         let previous_row = 0;
 
@@ -1948,6 +1978,10 @@ export class Grid extends Object_Base {
         }
     }
 
+    /**
+     * Row moved event triggered after the row has been moved.
+     * @param  {Event} event   - The row moving event that triggered this call.
+     */
     row_moved( event ) {
         if( typeof( this.events.row_moved ) == 'function' ) {
             this.events.row_moved.call( this, event );
@@ -2637,11 +2671,17 @@ export class Grid extends Object_Base {
      * server functions
      **********************************************************************/
 
+    /**
+     * Function to fetch data to fill the grid, using the connection object.
+     * @param  {Object} options   - List of options to override while connecting to the server.
+     * @return {Object[]}         - List of records/data returned by the request.
+     */
     fetch_data( options ) {
 
         let request_options = Object.assign( {}, this.connection_options, options );
         this.connection.request( request_options );
 
+        return [];
     }
 
     /**********************************************************************
