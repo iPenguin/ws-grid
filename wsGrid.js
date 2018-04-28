@@ -220,6 +220,7 @@ export class Grid extends Object_Base {
             throw new Error( `Could not find grid element. Is ${this.id} an element in the DOM?` );
         }
 
+        // keep track of the drag events.
         this.drag = {
             started: false,
             type:    undefined,
@@ -234,14 +235,22 @@ export class Grid extends Object_Base {
                 break;
         }
 
+        // keep track of the event that triggered the inline editor to open.
         this.event_trigger = undefined;
 
+        // Define empty structure for the data to be displayed in the grid.
         this.data = [];
+        // Define empty structure for the metadata about each cell in the grid.
         this.metadata = [];
+        // Define placeholder structure for the footer row.
         this.totals_data = undefined;
 
         this._modify_style_sheet();
 
+        /**
+         * Is the data being displayed filtered? Used to determine if
+         * the filters should be applied when the grid is refreshed.
+         */
         this.is_filtered = false;
 
         this._create_lookup_tables( all_options.column_model, all_options.grouping_model );
@@ -284,9 +293,9 @@ export class Grid extends Object_Base {
 
         let colCount = column_model.length;
 
+        // Define empty object to contain all properties by column.
         this.columns = {};
         this.columns.order = [];
-        this.row_order = [];
 
         // loop through the columns and create a set of lookup tables for all properties.
         for( let i = 0; i < colCount; i++ ) {
