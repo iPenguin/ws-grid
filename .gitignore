@@ -21,6 +21,11 @@ sass/*.css
 sass/*.css.map
 .sass-cache
 
+#
+# Documentation
+#
+docs/
+
 ################################################
 # Miscellaneous
 #
