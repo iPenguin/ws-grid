@@ -1839,7 +1839,10 @@ export class Grid extends Object_Base {
                     editable = editable( row, column_name, this.data );
                 }
 
-                if( this.columns.visible[ column_name ]
+                if( this.columns.format[ column_name ] == 'delete' ) {
+                    this.delete_rows( [ row ] );
+                }
+                else if( this.columns.visible[ column_name ]
                     && editable
                     && this.columns.type[ column_name ] == 'checkbox'
                 ) {
