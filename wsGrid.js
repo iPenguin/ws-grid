@@ -86,59 +86,63 @@ const wsgrid_totals      = `${wsgrid_prefix}_totals`;
 const wsgrid_multiselect = `${wsgrid_prefix}_multiselect`;
 const wsgrid_data        = `${wsgrid_prefix}_data`;
 
+function _default_format( value ) {
+    if( value === undefined ) {
+        return '';
+    }
+
+    return value;
+}
+
 /**
  * Default values for the column options.
  */
 let column_defaults = {
-    name:           '',
-    label:          '',
-    width:          100,
     align:          'left',
-    fixed:          true,
-    visible:        true,
-    type:           'text',
+    classes:        '',
     editable:       false,
+    fixed:          true,
+    format:         _default_format,
     frozen_left:    false,
     frozen_right:   false,
-    classes:        '',
-    style:          '',
-    tooltip:        '',
-    options:        {},
+    label:          '',
+    locked:         false,
     max_length:     undefined,
     min_length:     undefined,
-    format:         ( value ) => {
-        if( value === undefined ) {
-            return '';
-        }
-
-        return value;
-    }
+    name:           '',
+    options:        {},
+    style:          '',
+    tooltip:        '',
+    type:           'text',
+    visible:        true,
+    width:          100,
 };
 
 /**
  * Define default values for grid options.
  */
 let grid_defaults = {
-    height:             200,
-    width:              200,
-    events:             {},
-    filters:            [],
-    overflow:           true,
-    sort_column:        '',
-    sort_direction:     'asc',
+    background:         'white',
+    background_alt:     'lightcyan',
+    column_defaults:    {},
     column_model:       [],
     column_reorder:     false,
     column_resize:      true,
     column_sort:        true,
-    row_reorder:        false,
-    multi_select:       false,
-    background:         'white',
-    background_alt:     'lightcyan',
-    grouping_model:     [],
     connection_type:    'socket',
     connection_options: {
         url: '',
     },
+    events:             {},
+    filters:            [],
+    grouping_model:     [],
+    height:             200,
+    multi_select:       false,
+    overflow:           true,
+    row_reorder:        false,
+    sort_column:        '',
+    sort_direction:     'asc',
+    width:              200,
 };
 
 /**
@@ -149,10 +153,10 @@ let grid_defaults = {
  * the grid those changes are not lost.
  */
 let cell_metadata = {
-    changed:         false,
-    old_value:       undefined,
-    classes:         '',
     background:      'white',
+    changed:         false,
+    classes:         '',
+    old_value:       undefined,
 };
 
 /**
@@ -300,7 +304,12 @@ export class Grid extends Object_Base {
         // loop through the columns and create a set of lookup tables for all properties.
         for( let i = 0; i < colCount; i++ ) {
             // fill in any missing default values.
-            this.column_model[ i ] = Object.assign( {}, column_defaults, column_model[ i ] );
+            this.column_model[ i ] = Object.assign(
+                {},                   // new object to become the model
+                column_defaults,      // built-in default values
+                this.column_defaults, // User overrides for default values
+                column_model[ i ]     // User created column model
+            );
 
             let keys = Object.keys( column_defaults );
             let column_name = this.column_model[ i ].name;
@@ -888,7 +897,7 @@ export class Grid extends Object_Base {
                     move_handle = `<span class='${wsgrid_header}_column_move_target' data-column='${column_name}'></span>`;
                 }
 
-                if( this.column_resize ) {
+                if( this.column_resize && ! this.columns.locked[ column_name] ) {
                     resize_handle = `<span class="${wsgrid_header}_column_resize" data-column="${column_name}"></span>`;
                 }
             }
