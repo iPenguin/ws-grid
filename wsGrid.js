@@ -95,6 +95,22 @@ function _default_format( value ) {
 }
 
 /**
+ * This function allows the user to specify a function to test if deleting
+ * a record should be allowed. It returns a Promise so that it can prompt or
+ * do other async calls to make the determination.
+ * @param       {Number} row_id      - ID of the row to be deleted.
+ * @param       {String} column_name - Name of the column clicked on.
+ * @param       {Object} row_data    - Data for the row in question.
+ * @constructor
+ * @return      {Promise}            - return a Promise to know if we should delete the record.
+ */
+function _default_delete_record( row_id, column_name, row_data ) {
+    return new Promise( ( resolve, reject ) => {
+        resolve();
+    } );
+}
+
+/**
  * Default values for the column options.
  */
 let column_defaults = {
@@ -133,6 +149,7 @@ let grid_defaults = {
     connection_options: {
         url: '',
     },
+    delete_record:      _default_delete_record,
     events:             {},
     filters:            [],
     grouping_model:     [],
@@ -143,6 +160,7 @@ let grid_defaults = {
     sort_column:        '',
     sort_direction:     'asc',
     width:              200,
+    word_wrap:          false,
 };
 
 /**
@@ -157,6 +175,7 @@ let cell_metadata = {
     changed:         false,
     classes:         '',
     old_value:       undefined,
+    selected:        false,
 };
 
 /**
@@ -365,6 +384,38 @@ export class Grid extends Object_Base {
                     document.styleSheets[ s ].insertRule( `.${wsgrid_row}_even { background-color: ${this.background_alt}; }`, r );
                 }
             }
+        }
+    }
+
+    /**
+     * Modify the background color of the odd rows.
+     * This function programmatically updates the CSS for the odd rows.
+     * @param {String} color   - HTML color or Hex value.
+     */
+    background_odd( color ) {
+
+        if( typeof( color ) == 'undefined' ) {
+            return this.background;
+        }
+        else {
+            this.background = color;
+            this._modify_style_sheet();
+        }
+    }
+
+    /**
+     * Modify the background color of the even rows.
+     * This function programmatically updates the CSS for the even rows.
+     * @param {String} color   - HTML color or Hex value.
+     */
+    background_even( color ) {
+
+        if( typeof( color ) == 'undefined' ) {
+            return this.background_alt;
+        }
+        else {
+            this.background_alt = color;
+            this._modify_style_sheet();
         }
     }
 
@@ -874,7 +925,6 @@ export class Grid extends Object_Base {
         let sort_styling = '';
         let move_handle = '';
         let resize_handle = '';
-        let div_classes = '';
 
         if( is_header ) {
             let decoration_side = 'left';
@@ -903,7 +953,6 @@ export class Grid extends Object_Base {
             }
 
             value = `${move_handle} ${this.columns.label[ column_name ]} ${sort_styling} ${resize_handle}`;
-            div_classes = `${wsgrid_header}_column`;
         }
         else {
 
@@ -975,7 +1024,6 @@ export class Grid extends Object_Base {
             tooltip = ` title="${this.columns.tooltip[ column_name ]}"`;
         }
 
-        let alignment = this.columns.align[ column_name ];
         cell_html += `<${column_type} class="${wsgrid_column} ${wsgrid_cell} ${column_classes} ${wsgrid_column}_${column_name}`
             + ( this.columns.frozen_left[ column_name ] ? ' frozen_left' : '' )
             + ( this.columns.frozen_right[ column_name ] ? ' frozen_right' : '' )
@@ -984,9 +1032,25 @@ export class Grid extends Object_Base {
             + tooltip
             + ` data-rowid='${row_id}' data-column='${column_name}' data-columnid="${column_id}"`
             + ` style="${display} ${frozen_style} width:${this.columns.width[ column_name ]}px;${user_styles};">`
-            + `<div class="${wsgrid_cell}_div ${div_classes}" style="width:100%;text-align:${alignment};">${value}</div></${column_type}>`;
+            + this._generate_cell_content( column_name, value );
+        +`</${column_type}>`;
 
         return cell_html;
+    }
+
+    /**
+     * Generate the contents of the cell.
+     * @param  {String} column_name  - Name of the column this cell belongs in.
+     * @param  {String} value        - Value after formatting to display in the grid cell.
+     * @return {String}              - String of HTML for display in a grid cell.
+     */
+    _generate_cell_content( column_name, value ) {
+        let alignment = this.columns.align[ column_name ];
+        let html = `<div class="${wsgrid_cell}_div_position">`
+            + `<div class="${wsgrid_cell}_div" style="text-align:${alignment};">${value}</div>`
+            + `</div>`;
+
+        return html;
     }
 
     /**
@@ -1216,8 +1280,12 @@ export class Grid extends Object_Base {
             class_name = `id_${row_id}`;
         }
 
+        let is_selected = '';
+        if( this.metadata[ row_id ].selected ) {
+            is_selected = 'checked';
+        }
         // Class order makes a difference here:
-        return `<input class="${wsgrid_multiselect}_${class_name} ${wsgrid_multiselect}_checkbox" type="checkbox" data-rowid="${row_id}">`;
+        return `<input class="${wsgrid_multiselect}_${class_name} ${wsgrid_multiselect}_checkbox" type="checkbox" data-rowid="${row_id}" ${is_selected}>`;
     }
 
     /**
@@ -1677,6 +1745,27 @@ export class Grid extends Object_Base {
     }
 
     /**
+     * Clear any rows that are selected by the user.
+     */
+    clear_selection() {
+        let selected = this.grid.getElementsByClassName( 'selected' );
+        let count = selected.length;
+
+        for( let i = 0; i < count; i++ ) {
+            selected[ i ].closest( 'tr' ).classList.remove( 'selected_row' );
+            selected[ i ].classList.remove( 'selected' );
+        }
+
+        for( let meta_record of this.metadata ) {
+            let keys = Object.keys( meta_record );
+            for( let i = 0; i < keys.length; i++ ) {
+                let key = keys[ i ];
+                meta_record[ key ].selection = false;
+            }
+        }
+    }
+
+    /**
      * Clear the changes flagged in the metadata.
      * @type {Array}
      */
@@ -1840,7 +1929,10 @@ export class Grid extends Object_Base {
                 }
 
                 if( this.columns.format[ column_name ] == 'delete' ) {
-                    this.delete_rows( [ row ] );
+                    let delete_row = this.delete_record( row, column_name, this.data[ row ] );
+                    delete_row.then( () => {
+                        this.delete_rows( [ row ] );
+                    } );
                 }
                 else if( this.columns.visible[ column_name ]
                     && editable
@@ -2048,7 +2140,7 @@ export class Grid extends Object_Base {
     }
 
     /**
-     * Sor the data in the grid by column name and sort order
+     * Sort the data in the grid by column name and sort order
      * @param  {String} [column_name='']   - Name of column to sort by.
      * @param  {String} [sort_order='asc'] - Order in which to sort data asc, desc
      */
@@ -2218,8 +2310,12 @@ export class Grid extends Object_Base {
         let editor = '';
         let cell_value = this.data[ cell.dataset.rowid ][ properties.name ];
 
+        if( typeof( cell_value ) == 'undefined' ) {
+            cell_value = '';
+        }
+
         // Only open an editor if one isn't already open.
-        if( cell.firstChild == '#text' ) {
+        if( cell.firstChild == 'div' ) {
             return cell.innerHTML;
         }
 
@@ -2231,8 +2327,7 @@ export class Grid extends Object_Base {
 
         let checked = '';
 
-        if( properties.type == 'checkbox' &&
-            Number( value ) == 1 ) {
+        if( properties.type == 'checkbox' && Number( value ) == 1 ) {
             checked = 'checked';
         }
         else if( properties.type == 'date' ) {
@@ -2254,6 +2349,12 @@ export class Grid extends Object_Base {
                 options += `<option value="${key}" ${selected}>${properties.options[ key ]}</option>`;
             }
             editor = `<select class="${wsgrid_editor}_main_editor">${options}</select>`;
+        }
+        else if( properties.type == 'text' ) {
+            editor = `<textarea class="${wsgrid_editor}_main_editor"`
+                + `style="font-family:inherit;font-size:inherit;padding:0;border:0;height:100%;width:100%;"`
+                + ( properties.max_length ? ` maxlength="${properties.max_length}"` : '' )
+                + `>${value}</textarea>`;
         }
         else {
             editor = `<input type="${properties.type}" class="${wsgrid_editor}_main_editor"`
@@ -2285,7 +2386,7 @@ export class Grid extends Object_Base {
         } );
 
         // Force an enter event to be a blur event and leave the field.
-        cell.firstChild.addEventListener( 'keyup', ( event ) => {
+        cell.firstChild.addEventListener( 'keydown', ( event ) => {
 
             switch( event.keyCode ) {
                 case 9:  // tab
@@ -2406,8 +2507,7 @@ export class Grid extends Object_Base {
             format_new_value = this.columns.format[ column_name ]( format_new_value, this.data[ row_id ] );
         }
 
-        let alignment = this.columns.align[ column_name ];
-        cell.innerHTML = `<div class="${wsgrid_cell}_div" style="width:100%;text-align:${alignment};">${format_new_value}</div>`;
+        cell.innerHTML = this._generate_cell_content( column_name, format_new_value );
 
         // Don't alert for changes unless the data really changed.
         if( new_value == old_value ) {

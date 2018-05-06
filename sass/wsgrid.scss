@@ -14,7 +14,7 @@ $font-size: 14px;
     height: 100%;
     overflow: auto;
     position:relative;
-    white-space: nowrap;
+    white-space: normal;
     width: 100%;
 
     thead {
@@ -38,6 +38,9 @@ $font-size: 14px;
             td {
                 background-color: #ececec;
             }
+        }
+        tr.wsgrid__row {
+            border-bottom: 1px solid lightgray;
         }
         tr:hover td.selected,
         td.selected {
@@ -66,7 +69,7 @@ $font-size: 14px;
     td {
         align-items: center;
         border-right: 1px solid black;
-        display: flex;
+        display: table-cell;
         height: 22px;
         overflow: hidden;
         padding: 3px;
@@ -114,6 +117,7 @@ td.wsgrid__column_group_footer {
 .wsgrid__header_column {
     position: relative;
     white-space: nowrap;
+    height: 100%;
 }
 .wsgrid__header_sort {
     position: absolute;
@@ -165,4 +169,17 @@ td.wsgrid__column_group_footer {
 }
 .wsgrid__column_row_move_target:hover {
     cursor: move;
+}
+.wsgrid__cell_div_position {
+    display: table;
+    height: 100%;
+    margin: auto 0;
+    width: 100%;
+}
+.wsgrid__cell_div {
+    display: table-cell;
+    height: 100%;
+    min-height: 24px;
+    vertical-align: middle;
+    width: 100%;
 }
