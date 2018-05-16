@@ -52,6 +52,13 @@
  *     before_inline_opened( row, column_name, value, row_data )     - return '' to prevent a dialog opening.
  *     before_close( row, column_name, value, row_data )     - can prevent the editor from closing and loosing focus.
  *     before_inline_submitted( row, column_name, value, row_data )  - can manipulate the data before it's saved to the local data model.
+ * bindable events:
+ *     cell.changed
+ *     column.moved
+ *     recordset.changed
+ *     row.moved
+ *     row.resized
+ *     selection.changed
  * filters:         - An object with filtering functions.
  * height:          - Height of grid. Set the height to an empty string to allow the grid to be the height of the data.
  * id:              - ID of DOM element that will contain this grid.
@@ -761,7 +768,7 @@ export class Grid extends Object_Base {
 
         this._sort_data( '', 'asc' );
         this.refresh();
-        let e = new Event( `${wsgrid_data}.recordset_changed`, { bubbles: true } );
+        let e = new Event( 'recordset.changed', { bubbles: true } );
         this.grid.dispatchEvent( e );
     }
 
@@ -1057,6 +1064,8 @@ export class Grid extends Object_Base {
      * Set a new column width, update the column calculations, and recreat the table.
      * @param {String} column_name   - Name of the column to update the width for
      * @param {Number} width         - The new width of the column
+     * @emits {row.resized}          - event triggered after a row has been resized
+     *                                 contains the name of the column being resized.
      */
     set_column_width( column_name, width ) {
         // set minimum width so we can still resize it
@@ -1117,7 +1126,7 @@ export class Grid extends Object_Base {
         this.data.splice( row_id, 1 );
         this.data.splice( previous_row, 0, row_data );
 
-        let e = new Event( `${wsgrid_data}.row_moved`, { bubbles: true } );
+        let e = new Event( 'row.moved', { bubbles: true } );
         e.data = {
             row:       row_id,
             previous:  previous_row,
@@ -1456,6 +1465,7 @@ export class Grid extends Object_Base {
     /**
      * Add the records to the data
      * @param {Object[]} records  - a Javascript object containing keys matching the columns
+     * @emits {recordset.changed} - allow the user to keep track of changes occuring to rows.
      */
     append_rows( records ) {
 
@@ -1491,7 +1501,7 @@ export class Grid extends Object_Base {
         let body = this.grid.querySelector( `.${wsgrid_body}` );
         body.innerHTML = this._generate_rows();
 
-        let e = new Event( `${wsgrid_data}.recordset_changed`, { bubbles: true } );
+        let e = new Event( 'recordset.changed', { bubbles: true } );
         this.grid.dispatchEvent( e );
     }
 
@@ -1508,7 +1518,7 @@ export class Grid extends Object_Base {
         }
 
         this.refresh();
-        let e = new Event( `${wsgrid_data}.recordset_changed`, { bubbles: true } );
+        let e = new Event( 'recordset.changed', { bubbles: true } );
         this.grid.dispatchEvent( e );
     }
 
@@ -1627,7 +1637,7 @@ export class Grid extends Object_Base {
             let old_value = this.data[ row_id ][ column_name ];
 
             this.set_cell( column_name, row_id, value );
-            let e = new Event( `${wsgrid_data}.cell_changed`, { bubbles: true } );
+            let e = new Event( 'cell.changed', { bubbles: true } );
             e.changes = [ {
                 row:       row_id,
                 column:    column_name,
@@ -1878,7 +1888,7 @@ export class Grid extends Object_Base {
             target.classList.add( 'selected' );
             target.closest( 'tr' ).classList.add( 'selected_row' );
 
-            let e = new Event( `${wsgrid_data}.selection_changed`, { bubbles: true } );
+            let e = new Event( 'selection.changed', { bubbles: true } );
             event.target.dispatchEvent( e );
 
             let row = target.dataset.rowid;
@@ -1946,7 +1956,7 @@ export class Grid extends Object_Base {
                         this.events.after_edit.call( this, row, column_name, new_value );
                     }
 
-                    let e = new Event( `${wsgrid_data}.cell_changed`, { bubbles: true } );
+                    let e = new Event( 'cell.changed', { bubbles: true } );
                     e.changes = [ {
                         row:       row,
                         column:    column_name,
@@ -1984,7 +1994,7 @@ export class Grid extends Object_Base {
      */
     change( event ) {
         if( event.target.classList.contains( `${wsgrid_multiselect}_checkbox` ) ) {
-            let e = new Event( `${wsgrid_data}.selection_changed`, { bubbles: true } );
+            let e = new Event( 'selection.changed', { bubbles: true } );
             event.target.dispatchEvent( e );
         }
     }
@@ -2466,7 +2476,7 @@ export class Grid extends Object_Base {
      * The user can override it by creating an before_inline_closed event and returning false;
      * @param  {HTMLElement} cell   - HTML object of the cell we're editing.
      * @return {Boolean}       - did the editor close?
-     * @emits  {wsgri__data.cell_changed} emits event when the editor is closed and the data change has been saved.
+     * @emits  {cell_changed} emits event when the editor is closed and the data change has been saved.
      */
     _close_editor( cell ) {
         let row_id = cell.dataset.rowid;
@@ -2521,7 +2531,7 @@ export class Grid extends Object_Base {
             this.events.after_edit.call( this, row_id, column_name, new_value );
         }
 
-        let e = new Event( `${wsgrid_data}.cell_changed`, { bubbles: true } );
+        let e = new Event( 'cell.changed', { bubbles: true } );
         e.changes = [ {
             row:       row_id,
             column:    column_name,
