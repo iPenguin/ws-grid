@@ -1290,9 +1290,9 @@ export class Grid extends Object_Base {
         }
 
         let is_selected = '';
-        if( this.metadata[ row_id ].selected ) {
-            is_selected = 'checked';
-        }
+        // if( this.metadata[ row_id ].selected ) {
+        //     is_selected = 'checked';
+        // }
         // Class order makes a difference here:
         return `<input class="${wsgrid_multiselect}_${class_name} ${wsgrid_multiselect}_checkbox" type="checkbox" data-rowid="${row_id}" ${is_selected}>`;
     }
@@ -1869,6 +1869,9 @@ export class Grid extends Object_Base {
                 target = target.closest( 'TD' );
             }
         }
+        let row = target.dataset.rowid;
+        let column = target.dataset.column;
+
         classList = target.classList;
 
         if( classList.contains( `${wsgrid_header}_column` ) ) {
@@ -1876,23 +1879,18 @@ export class Grid extends Object_Base {
         }
         else if( classList.contains( `${wsgrid_multiselect}_header` ) ) {
             this._multiselect_header_checked( target.checked );
+            this.metadata[ row ][ column ].selected = target.checked;
         }
         else if( classList.contains( `${wsgrid_cell}` ) ) {
-            let selected = this.grid.getElementsByClassName( 'selected' );
-            let count = selected.length;
-            for( let i = 0; i < count; i++ ) {
-                selected[ i ].closest( 'tr' ).classList.remove( 'selected_row' );
-                selected[ i ].classList.remove( 'selected' );
-            }
+            this.clear_selection();
 
             target.classList.add( 'selected' );
             target.closest( 'tr' ).classList.add( 'selected_row' );
+            this.metadata[ row ][ column ].selected = true;
+            //this.metadata[ row ]
 
             let e = new Event( 'selection.changed', { bubbles: true } );
             event.target.dispatchEvent( e );
-
-            let row = target.dataset.rowid;
-            let column = target.dataset.column;
 
             if( typeof( this.events.click ) == 'function' ) {
                 this.events.click.call( this, row, column, this.data[ row ], event );
