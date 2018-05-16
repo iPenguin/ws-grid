@@ -1712,7 +1712,7 @@ export class Grid extends Object_Base {
     is_editable( column_name, row_id ) {
         let editable = this.columns.editable[ column_name ];
         if( typeof( editable ) == 'function' ) {
-            editable = editable( row_id, column_name, this.data );
+            editable = editable( row_id, column_name, this.data[ row_id ] );
         }
 
         return editable;
@@ -1960,7 +1960,7 @@ export class Grid extends Object_Base {
             if( ! event.defaultPrevented ) {
                 let editable = this.columns.editable[ column_name ];
                 if( typeof( editable ) == 'function' ) {
-                    editable = editable( row, column_name, this.data );
+                    editable = editable( row, column_name, this.data[ row ] );
                 }
 
                 if( this.columns.format[ column_name ] == 'delete' ) {
@@ -2589,7 +2589,7 @@ export class Grid extends Object_Base {
             let current_column = this.columns.order[ i ];
             let editable = this.columns.editable[ current_column ];
             if( typeof( editable ) == 'function' ) {
-                editable = editable( current_record, current_column, this.data );
+                editable = editable( current_record, current_column, this.data[ current_record ] );
             }
 
             if( this.columns.visible[ current_column ] && editable ) {
@@ -2625,7 +2625,7 @@ export class Grid extends Object_Base {
             let current_column = this.columns.order[ i ];
             let editable = this.columns.editable[ current_column ];
             if( typeof( editable ) == 'function' ) {
-                editable = editable( current_record, current_column, this.data );
+                editable = editable( current_record, current_column, this.data[ current_record ] );
             }
 
             if( this.columns.visible[ current_column ] && editable ) {
