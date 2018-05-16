@@ -973,12 +973,12 @@ export class Grid extends Object_Base {
                     move_handle = `<span class='${wsgrid_header}_column_move_target' data-column='${column_name}'></span>`;
                 }
 
-                if( this.column_resize && ! this.columns.locked[ column_name] ) {
+                if( this.column_resize && ! this.columns.locked[ column_name ] ) {
                     resize_handle = `<span class="${wsgrid_header}_column_resize" data-column="${column_name}"></span>`;
                 }
             }
 
-            value = `${move_handle} ${this.columns.label[ column_name ]} ${sort_styling} ${resize_handle}`;
+            value = this.columns.label[ column_name ];
         }
         else {
 
@@ -1058,7 +1058,7 @@ export class Grid extends Object_Base {
             + tooltip
             + ` data-rowid='${row_id}' data-column='${column_name}' data-columnid="${column_id}"`
             + ` style="${display} ${frozen_style} width:${this.columns.width[ column_name ]}px;${user_styles};">`
-            + this._generate_cell_content( column_name, value );
+            + move_handle + this._generate_cell_content( column_name, value, is_header ) + sort_styling + resize_handle;
         +`</${column_type}>`;
 
         return cell_html;
@@ -1464,9 +1464,19 @@ export class Grid extends Object_Base {
         let data = this.data[ row_id ];
 
         if( recreate_cell ) {
+            let classes = cell.classList;
+
+            for( let c in classes ) {
+                if( c == `${wsgrid_column}`
+                    || c == `${wsgrid_cell}`
+                    || c == `${wsgrid_column}_${column_name}`
+                ) {
+                    classes.remove( c );
+                }
+            }
             // create a temporary wrapper so we can create the cell we really want.
             let temp = document.createElement( 'tr' );
-            let cell_html = this._generate_cell( row_id, column_id, data, cell.tagName );
+            let cell_html = this._generate_cell( row_id, column_id, data, cell.tagName, classes.toString() );
             temp.innerHTML = cell_html;
 
             let newCell = temp.firstChild;
