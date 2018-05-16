@@ -1637,8 +1637,7 @@ export class Grid extends Object_Base {
         this.metadata[ row_id ][ column_name ].changed = true;
         this.metadata[ row_id ][ column_name ].old_value = old_value;
 
-        //this.refresh_cell( row_id, column_name );
-        this.refresh();
+        this.refresh_cell( row_id, column_name );
     }
 
     /**
