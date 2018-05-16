@@ -24,14 +24,15 @@
 
         let columns = [
             { name: 'id',         visible: false,                                    },
+            { name: 'delete',     label: '',           width: 20,        format: 'delete', },
             { name: 'first_name', label: 'First Name', width: 200, align: 'left',   fixed: false, type: 'text',            editable: true                                          },
-            { name: 'last_name',  label: 'Last Name',  width: 200, align: 'left',   fixed: false, type: 'text',            editable: false                                         },
+            { name: 'last_name',  label: 'Last Name',  width: 200, align: 'left',   locked: true, fixed: false, type: 'text',            editable: false                                         },
             { name: 'age',        label: 'Age',        width: 75,  align: 'right',  fixed: true,  type: 'number',          editable: true                                          },
-            { name: 'height',     label: 'Height',     width: 75,  align: 'center', fixed: true,  type: 'text',            editable: true                                          },
-            { name: 'dob',        label: 'DOB',        width: 100, align: 'center', fixed: true,  type: 'date',            editable: true                                          },
-            { name: 'color',      label: 'Color',      width: 75,  align: 'center', fixed: true,  type: 'color',           editable: true                                          },
+            { name: 'height',     label: 'Height',     width: 75,                   fixed: true,  type: 'text',            editable: true                                          },
+            { name: 'dob',        label: 'DOB',        width: 100,                  fixed: true,  type: 'date',            editable: true                                          },
+            { name: 'color',      label: 'Color',      width: 75,                   fixed: true,  type: 'color',           editable: true                                          },
             { name: 'gender',     label: 'Gender',     width: 75,  align: 'left',   fixed: true,  type: 'dropdown',        editable: true, options: { 'female': 'Female', 'male': 'Male' } },
-            { name: 'selected',   label: 'Check',      width: 50,  align: 'center', fixed: true,  type: 'checkbox',        editable: true, format: 'boolean'                       },
+            { name: 'selected',   label: 'Check',      width: 50,                   fixed: true,  type: 'checkbox',        editable: true, format: 'boolean'                       },
             { name: 'edited',     label: 'Edited',     width: 150, align: 'left',   fixed: true,  type: 'datetime-local',  editable: true, format: 'datetime'                      },
         ];
 
@@ -41,6 +42,11 @@
             overflow:       false,
             column_reorder: true,
             column_model:   columns,
+            multi_select:   true,
+            row_reorder:    true,
+            column_defaults: {
+                align: 'center',
+            },
             events:         {
                 click( row, column_name, data ) {
                 },
@@ -53,6 +59,12 @@
                 url:  'ws://localhost:1337',
             }
         } );
+
+        function dataChanged( event ) {
+            console.log( "data changed", event );
+        }
+
+        grid.bind( 'cell.changed', dataChanged );
 
         grid.display( [
             { id: 1,   first_name: 'John',    last_name: 'Smith',   age: 28,  height: '5\'10"', dob: '1985-10-21', gender: 'male',    color: '#FFC0CB', selected: 1,  edited: '2018-10-01T12:24:32' },
