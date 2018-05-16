@@ -13,7 +13,7 @@ $font-size: 14px;
     font-size: $font-size;
     height: 100%;
     overflow: auto;
-    position:relative;
+    position: relative;
     white-space: normal;
     width: 100%;
 
@@ -69,12 +69,22 @@ $font-size: 14px;
     td {
         align-items: center;
         border-right: 1px solid black;
-        display: table-cell;
-        height: 22px;
+        height: 20px;
         overflow: hidden;
         padding: 3px;
     	text-align: left;
     	vertical-align: top;
+    }
+    th {
+        display: flex;
+    }
+    td {
+        display: table-cell;
+    }
+    td input {
+        border: 0 solid black;
+        padding: 0;
+        height: 20px;
     }
     th:last-of-type,
     td:last-of-type {
@@ -83,12 +93,12 @@ $font-size: 14px;
     td:hover {
         background-color: #f8f8f8;
     }
+    .selected_row td {
+        background-color: #e0e0e0; /* light gray */
+    }
     td.selected {
         background-color: LightSkyBlue; /* light gray */
     }
-}
-.wsgrid__row.selected_row td {
-    background-color: #e0e0e0; /* light gray */
 }
 .wsgrid__row_group_header,
 .wsgrid__row_group_footer {
@@ -179,7 +189,6 @@ td.wsgrid__column_group_footer {
 .wsgrid__cell_div {
     display: table-cell;
     height: 100%;
-    min-height: 24px;
     vertical-align: middle;
     width: 100%;
 }

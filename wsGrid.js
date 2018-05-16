@@ -147,6 +147,7 @@ let column_defaults = {
 let grid_defaults = {
     background:         'white',
     background_alt:     'lightcyan',
+    cell_word_wrap:     true,
     column_defaults:    {},
     column_model:       [],
     column_reorder:     false,
@@ -167,7 +168,6 @@ let grid_defaults = {
     sort_column:        '',
     sort_direction:     'asc',
     width:              200,
-    word_wrap:          false,
 };
 
 /**
@@ -284,7 +284,9 @@ export class Grid extends Object_Base {
         this.is_filtered = false;
 
         this._create_lookup_tables( all_options.column_model, all_options.grouping_model );
+        this._create_lookup_tables( all_options.column_model, all_options.grouping_model, 'original_column_settings' );
         this._calculate_columns();
+        this.word_wrap( this.cell_word_wrap );
 
         this.grid = this._create_base_table();
 
@@ -312,7 +314,7 @@ export class Grid extends Object_Base {
      * @param  {Object[]} column_model        - Column model used to create this grid.
      * @param  {Object[]} grouping_model      - Grouping model used to create grouping headers.
      */
-    _create_lookup_tables( column_model = null, grouping_model = null ) {
+    _create_lookup_tables( column_model = null, grouping_model = null, destination = 'columns' ) {
         if( column_model === null ) {
             column_model = this.column_model;
         }
@@ -324,8 +326,8 @@ export class Grid extends Object_Base {
         let colCount = column_model.length;
 
         // Define empty object to contain all properties by column.
-        this.columns = {};
-        this.columns.order = [];
+        this[ destination ] = {};
+        this[ destination ].order = [];
 
         // loop through the columns and create a set of lookup tables for all properties.
         for( let i = 0; i < colCount; i++ ) {
@@ -341,15 +343,15 @@ export class Grid extends Object_Base {
             let column_name = this.column_model[ i ].name;
 
             // Keep track of the column order.
-            this.columns.order[ i ] = column_name;
+            this[ destination ].order[ i ] = column_name;
 
             // keep track of all properties by column name.
             for( let key of keys ) {
-                if( typeof( this.columns[ key ] ) == 'undefined' ) {
-                    this.columns[ key ] = {};
+                if( typeof( this[ destination ][ key ] ) == 'undefined' ) {
+                    this[ destination ][ key ] = {};
                 }
 
-                this.columns[ key ][ column_name ] = this.column_model[ i ][ key ];
+                this[ destination ][ key ][ column_name ] = this.column_model[ i ][ key ];
             }
         }
 
@@ -378,17 +380,34 @@ export class Grid extends Object_Base {
      */
     _modify_style_sheet() {
 
+        this._modify_stylesheet_rule( `.${wsgrid_row}_odd`, {
+            'background-color': this.background,
+        } );
+        this._modify_stylesheet_rule( `.${wsgrid_row}_even`, {
+            'background-color': this.background_alt
+        } );
+    }
+
+    /**
+     * Modify the stylesheet with some settings from the user.
+     * We're modifying the stylesheet directly because adding styles directly
+     * to the elements breaks the row selection coloring.
+     *
+     * @param {String} selector     - CSS selector
+     * @param {Object} properties   - Object of key/value pairs representing properties and the values to set them to.
+     */
+    _modify_stylesheet_rule( selector, properties ) {
+
         for( let s = 0; s < document.styleSheets.length; s++ ) {
             let rules = document.styleSheets[ s ].cssRules;
             let ruleCount = rules.length;
             for( let r = 0; r < ruleCount; r++ ) {
-                if( rules[ r ].selectorText == `.${wsgrid_row}_odd` ) {
-                    document.styleSheets[ s ].deleteRule( r );
-                    document.styleSheets[ s ].insertRule( `.${wsgrid_row}_odd { background-color: ${this.background}; }`, r );
-                }
-                else if( rules[ r ].selectorText == `.${wsgrid_row}_even` ) {
-                    document.styleSheets[ s ].deleteRule( r );
-                    document.styleSheets[ s ].insertRule( `.${wsgrid_row}_even { background-color: ${this.background_alt}; }`, r );
+                if( rules[ r ].selectorText == selector ) {
+                    let rule = rules[ r ];
+
+                    for( let key in properties ) {
+                        rule.style[ key ] = properties[ key ];
+                    }
                 }
             }
         }
@@ -939,7 +958,7 @@ export class Grid extends Object_Base {
                 if( this.columns.align[ column_name ] == 'left' ) {
                     decoration_side = 'right';
                 }
-                sort_styling = `<span class="${wsgrid_header}_sort" style="${decoration_side}:5px"><i class="fa fa-sort-${this.sort_direction} fa-sm"></i></span>`;
+                sort_styling = `<span class="${wsgrid_header}_sort ${wsgrid_header}_column" style="${decoration_side}:5px"><i class="fa fa-sort-${this.sort_direction} fa-sm ${wsgrid_header}_column"></i></span>`;
             }
 
             // if this isn't the first column in a multi_select then...
@@ -1049,13 +1068,18 @@ export class Grid extends Object_Base {
      * Generate the contents of the cell.
      * @param  {String} column_name  - Name of the column this cell belongs in.
      * @param  {String} value        - Value after formatting to display in the grid cell.
+     * @param  {boolean} is_header   - Is this a header cell?
      * @return {String}              - String of HTML for display in a grid cell.
      */
-    _generate_cell_content( column_name, value ) {
+    _generate_cell_content( column_name, value, is_header = false ) {
+        let header_class = '';
+        if( is_header ) {
+            header_class = `${wsgrid_header}_column`;
+        }
         let alignment = this.columns.align[ column_name ];
-        let html = `<div class="${wsgrid_cell}_div_position">`
-            + `<div class="${wsgrid_cell}_div" style="text-align:${alignment};">${value}</div>`
-            + `</div>`;
+        let html = `<div class="${wsgrid_cell}_div_position ${header_class}">`
+             + `<div class="${wsgrid_cell}_div ${header_class}" style="text-align:${alignment};">${value}</div>`
+             + `</div>`;
 
         return html;
     }
@@ -1327,36 +1351,30 @@ export class Grid extends Object_Base {
         return this._generate_row( '', this.totals_data, `${wsgrid_totals}`, `${wsgrid_totals}_column` );
     }
 
-    // restripe_table() {
-    //     let zebra = 0;
-    //     for( let i = 0; i < this.data.length; i++ ) {
-    //         let row = document.getElementsByClassName( `${wsgrid_row}_${i}` )[ 0 ];
-    //         let count =  this.columns.order.length;
-    //         console.log( "table", typeof( row ) );
-    //         if( row == null ) {
-    //             continue;
-    //         }
-    //
-    //         for( let c = 0; c < count; c++ ) {
-    //             let column_name = this.columns.order[ c ];
-    //             let cell = document.getElementById( `${wsgrid_column}_${i}_${column_name}` );
-    //
-    //             if( cell == null ) {
-    //                 continue;
-    //             }
-    //
-    //             if( zebra % 2 == 0 ) {
-    //                 cell.classList.remove( `${wsgrid_row}_odd` );
-    //                 cell.classList.add( `${wsgrid_row}_even` );
-    //             }
-    //             else {
-    //                 cell.classList.remove( `${wsgrid_row}_even` );
-    //                 cell.classList.add( `${wsgrid_row}_odd` );
-    //             }
-    //         }
-    //         zebra++;
-    //     }
-    // }
+    /**
+     * getter/setter for word wrapping in cells.
+     * @param  {Boolean} [state=undefined]   - state to set the word_wrap to.
+     * @return {Boolean}                     - current state of word wrap.
+     */
+    word_wrap( state = undefined ) {
+
+        if( typeof( state ) == 'undefined' ) {
+            return this.cell_word_wrap;
+        }
+        else {
+            if( state ) {
+                this._modify_stylesheet_rule( `.${wsgrid_table}`, {
+                    'white-space': 'normal',
+                } );
+            }
+            else {
+                this._modify_stylesheet_rule( `.${wsgrid_table}`, {
+                    'white-space': 'nowrap',
+                } );
+            }
+            this.cell_word_wrap = state;
+        }
+    }
 
     /**
      * Create a filter and apply it to the data.
