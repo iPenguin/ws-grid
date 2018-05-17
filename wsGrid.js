@@ -2386,8 +2386,9 @@ export class Grid extends Object_Base {
             editor = `<select class="${wsgrid_editor}_main_editor">${options}</select>`;
         }
         else if( properties.type == 'text' ) {
+            let height = cell.offsetHeight - 9; // remove for margins, padding, and borders...
             editor = `<textarea class="${wsgrid_editor}_main_editor"`
-                + `style="font-family:inherit;font-size:inherit;padding:0;border:0;height:100%;width:100%;"`
+                + `style="font-family:inherit;font-size:inherit;padding:0;border:0;height:${height}px;width:100%;"`
                 + ( properties.max_length ? ` maxlength="${properties.max_length}"` : '' )
                 + `>${value}</textarea>`;
         }
@@ -2491,7 +2492,9 @@ export class Grid extends Object_Base {
 
         // Let the user edit right away.
         cell.firstChild.focus();
-        if( cell.firstChild.tagName == 'INPUT' ) {
+        if( cell.firstChild.tagName == 'INPUT' ||
+            cell.firstChild.tagName == 'TEXTAREA'
+        ) {
             cell.firstChild.select();
         }
     }
