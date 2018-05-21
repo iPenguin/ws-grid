@@ -1772,6 +1772,44 @@ export class Grid extends Object_Base {
     }
 
     /**
+     * Based on where the user selects items create a continuous selection of records.
+     * @param  {Number} start_row   - first record to select
+     * @param  {Number} end_row     - last record to select
+     */
+    _select_multiple_rows( start_row, end_row ) {
+        console.log( "select records", start_row, end_row );
+        let start = start_row;
+        let end = start_row;
+
+        if( start_row > end_row ) {
+            start = end_row;
+        }
+        else {
+            end = end_row;
+        }
+
+        for( let i = start; i <= end; i++ ) {
+            this._select_row( i );
+        }
+    }
+
+    /**
+     * Change the state of a rows selection status.
+     * @param  {Number}  row_id            - the row number to change.
+     * @param  {Boolean} [state=undefined] - What state to set the row's selection to.
+     */
+    _select_row( row_id, state = undefined ) {
+        let checkboxes = document.querySelectorAll( `.${wsgrid_multiselect}_id_${row_id}` );
+        if( typeof( state ) == 'undefined' ) {
+            state = ! checkboxes[ 0 ].checked;
+        }
+        checkboxes[ 0 ].checked = state;
+
+        let e = new Event( `${wsgrid_data}.selection_changed`, { bubbles: true } );
+        checkboxes[ 0 ].dispatchEvent( e );
+    }
+
+    /**
      * Clear any rows that are selected by the user.
      */
     clear_selection() {
@@ -1897,6 +1935,16 @@ export class Grid extends Object_Base {
         else if( classList.contains( `${wsgrid_multiselect}_header` ) ) {
             this._multiselect_header_checked( target.checked );
             this.metadata[ row ][ column ].selected = target.checked;
+        }
+        else if( this.multi_select && event.shiftKey ) {
+            let selected_rows = this.grid.querySelectorAll( '.selected' );
+            if( selected_rows.length !== 1 ) {
+                return;
+            }
+            let start_row = Number( selected_rows[ 0 ].dataset.rowid );
+            let end_row = Number( target.dataset.rowid );
+
+            this._select_multiple_rows( start_row, end_row );
         }
         else if( classList.contains( `${wsgrid_cell}` ) ) {
             this.clear_selection();
@@ -2029,6 +2077,12 @@ export class Grid extends Object_Base {
      */
     mousedown( event ) {
         let classList = event.target.classList;
+
+        // Disable text selection when trying to select multiple items in the list.
+        if( event.shiftKey ) {
+            event.preventDefault();
+            return;
+        }
 
         if( classList.contains( `${wsgrid_header}_column_resize` ) ) {
             this.drag.started = true;
