@@ -134,6 +134,7 @@ let column_defaults = {
     min_length:     undefined,
     name:           '',
     options:        {},
+    sort:           undefined,
     style:          '',
     tooltip:        '',
     type:           'text',
@@ -2300,6 +2301,10 @@ export class Grid extends Object_Base {
     _get_value( column_name, object ) {
         let type = this.columns.type[ column_name ];
         let value = object[ column_name ];
+
+        if( typeof( this.columns.sort[ column_name ] ) == 'function' ) {
+            value = this.columns.sort[ column_name ]( column_name, object );
+        }
 
         if( typeof( type ) == 'function' ) {
             return type( value );
