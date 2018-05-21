@@ -2373,10 +2373,17 @@ export class Grid extends Object_Base {
                 if( value == '' || value == undefined ) {
                     return 0;
                 }
+
                 let datetime_format = 'YYYY-MM-DD HH:mm:ss';
                 if( value.indexOf( '/' ) != -1 ) {
-                    datetime_format = 'M/D/YYYY HH:mm:ss';
+                    if( value.indexOf( 'AM' ) != -1 || value.indexOf( 'PM' ) != -1 ) {
+                        datetime_format = 'M/D/YYYY h:mm:ss A';
+                    }
+                    else {
+                        datetime_format = 'M/D/YYYY HH:mm:ss';
+                    }
                 }
+
                 return Number( moment( value, datetime_format ).format( 'YYYYMMDDHHmmss' ) );
             default:
                 return String( value );
