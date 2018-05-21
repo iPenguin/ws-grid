@@ -74,8 +74,6 @@
 
 import { Number_Utility } from './number_utility.js';
 import { Object_Base } from './object_base.js';
-import { Socket } from './socket.js';
-import { Ajax } from './ajax.js';
 
 /**
  * Define names for parts of the grid.
@@ -256,15 +254,6 @@ export class Grid extends Object_Base {
             started: false,
             type:    undefined,
         };
-
-        switch( this.connection_type ) {
-            case 'socket':
-                this.connection = new Socket( this.connection_options );
-                break;
-            case 'ajax':
-                this.connection = new Ajax( this.connection_options );
-                break;
-        }
 
         // keep track of the event that triggered the inline editor to open.
         this.event_trigger = undefined;
@@ -2829,23 +2818,6 @@ export class Grid extends Object_Base {
 
         this._create_lookup_tables();
         this.refresh();
-    }
-
-    /**********************************************************************
-     * server functions
-     **********************************************************************/
-
-    /**
-     * Function to fetch data to fill the grid, using the connection object.
-     * @param  {Object} options   - List of options to override while connecting to the server.
-     * @return {Object[]}         - List of records/data returned by the request.
-     */
-    fetch_data( options ) {
-
-        let request_options = Object.assign( {}, this.connection_options, options );
-        this.connection.request( request_options );
-
-        return [];
     }
 
     /**********************************************************************
